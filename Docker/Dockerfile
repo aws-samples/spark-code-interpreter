@@ -1,3 +1,5 @@
+# This dockefile is  part of an another aws-samples called spark on AWS Lambda
+
 # Use AWS Lambda Python 3.8 image as base
 FROM public.ecr.aws/lambda/python:3.8
 
