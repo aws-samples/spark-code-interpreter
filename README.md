@@ -1,26 +1,14 @@
-# Bedrock Claude ChatBot
-Bedrock Chat App is a Streamlit application that allows users to interact with the Anthropic Bedrock language model. It provides a conversational interface where users can ask questions, upload documents, and receive responses from the AI assistant.
+# Project Bluebear - Big Data for Business Users
+Project Bluebear is an attempt to allow business users to use natural language queries for performing Big Data Analytics and receive results. It provides a zero code conversational interface where users can ask questions, upload documents, and receive responses from the AI assistant. Under the hood it uses GenAI to convert natural language queries into Spark code for performing big data analytics. 
 
 
-<img src="images/chatbot4.png" width="1000"/>
+<img src="images/image-v1.png" width="1000"/>
 
-READ THE FOLLOWING **PREREQUISITES** CAREFULLY.
+## Architecture
+This project provides a conversational interface using [Bedrock Claude Chatbot](https://github.com/aws-samples/bedrock-claude-chatbot). Amazon Bedrock is used for generating the spark code based on the user prompt. The spark code is then run on a lightweight [Apache Spark on AWS Lambda(SoAL) framework](https://github.com/aws-samples/spark-on-aws-lambda) to provide analysis results to the user. If the input data file is big, a subset of data from the file will be used to provide the results. User can ask to generate the results for full dataset if the results look good. The input data, spark code script and the output data will be stored in the S3 bucket to be used by Spark on AWS Lambda and Amazon EMR.
 
-## Features
+<img src="images/ArchitectureNumbered.jpeg" width="1000"/>
 
-- **Conversational UI**: The app provides a chat-like interface for seamless interaction with the AI assistant.
-- **Document Upload**: Users can upload various types of documents (PDF, CSV, TXT, PNG, JPG, XLSX, JSON, DOCX, Python scripts etc) to provide context for the AI assistant.
-- **Caching**: Uploaded documents and extracted text are cached in an S3 bucket for improved performance. This serves as the object storage unit for the application as documents are retrieved and loaded into the model to keep conversation context.
-- **Chat History**: The app stores stores and retrieves chat history (including document metadata) to/from a DynamoDB table, allowing users to continue conversations across sessions.
-- **Session Store**:  The application utilizes DynamoDB to store and manage user and session information, enabling isolated conversations and state tracking for each user interaction.
-- **Model Selection**: Users can select different Anthropic models (Claude-3.5-Sonnet. Claude-3-Sonnet, Claude-3-Haiku, Claude-Instant-V1, Claude-V2, Claude-V2:1) for their queries. It incorporates the Bedrock Converse API providing a standardized model interface.
-- **Cost Tracking**: The application calculates and displays the cost associated with each chat session based on the input and output token counts and the pricing model defined in the `pricing.json` file.
-- **Logging**: The items logged in the DynamoDB table include the user ID, session ID, messages, timestamps,uploaded documents s3 path, input and output token counts. This helps to isolate user engagement statistics and track the various items being logged, as well as attribute the cost per user.
-- **Tool Usage**: **`Advanced Data Analytics tool`** for processing and analyzing structured data (CSV and PARQUET format) using PySpark on AWS Lambda.
-
-There are two files of interest.
-1. A Jupyter Notebook that walks you through the ChatBot Implementation cell by cell (Advanced Data Analytics only available in the streamlit chatbot).
-2. A Streamlit app that can be deployed to create a UI Chatbot.
 
 ## Pre-Requisites
 1. [Amazon Bedrock Anthropic Claude Model Access](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html)
