@@ -1127,6 +1127,9 @@ def app_sidebar():
 
 
 def main():
+    # Add an application or chatbot header here
+    st.title("BlueBear Agentic AI for Business uers ")
+    st.header("Conversational AI Assistant Powered by Amazon Bedrock agent")
     params=app_sidebar()
     chat_bedrock_(params)
 
