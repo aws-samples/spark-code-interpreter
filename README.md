@@ -95,12 +95,9 @@ To customize the behavior for the conversational chatbot follow [these](https://
 To stop the `tmux` session, in your ec2 terminal Press `Ctrl+b`, then `d` to detach. to kill the session, run `tmux kill-session -t mysession`
 
 ## Future Road Map
-TBD
+We have below items on future roadmap
+* In case of a larger dataset, use subset of the dataset to provide realtime results back to the user.
+* Automatically decide weather to use SoAL or EMR serverless based on the size of the dataset.
 
 ## Cleanup
-
-## Contributions
-
-## Security
-
-## License
+Terminate the EC2 instance
