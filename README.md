@@ -1,5 +1,25 @@
 # Project Bluebear - Big Data for Business Users
-Project Bluebear is an attempt to allow business users to use natural language queries for performing Big Data Analytics and receive results. It provides a zero code conversational interface where users can ask questions, upload documents, and receive responses from the AI assistant. Under the hood it uses GenAI to convert natural language queries into Spark code for performing big data analytics. 
+Project Bluebear is a cutting-edge conversational Gen AI solution designed to analyze datasets ranging from megabytes (MBs) to petabytes (PBs) using Amazon Bedrock Agents and Apache Spark. This framework provides two seamless execution options:
+
+* Spark on AWS Lambda (SoAL) – A lightweight, real-time processing engine for datasets up to 500MB, supporting single-node spark execution for optimized performance.
+
+* Amazon EMR Serverless – A scalable solution for handling larger datasets, ensuring efficient heavy-lifting for extensive data analysis.
+
+## How It Works
+
+* Conversational Interface – Business users submit natural language queries.
+
+* AI-Powered Code Generation – Amazon Bedrock dynamically generates Spark code based on the user’s prompt.
+
+* Intelligent Execution – The Spark code runs on a dropdown interface, allowing users to choose between SoAL (Spark on AWS Lambda) and Amazon EMR Serverless, providing a cost-conscious option for executing their queries.
+
+    * SoAL (Spark on AWS Lambda) for quick, real-time analysis of smaller datasets.
+
+    * Amazon EMR Serverless for processing larger datasets, including petabytes of data, with robust computational power.
+
+## Solving a Critical Pain Point
+
+Natural language should be the new way of interacting with data, eliminating the need to spend months on ETL frameworks and deployment. Project Bluebear enables business users to perform analytics effortlessly through natural language queries, providing actionable insights in real time or at scale.
 
 
 <img src="images/image-v1.png" width="1000"/>
