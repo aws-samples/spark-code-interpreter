@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to set up an EC2 instance with Streamlit and necessary configurations.
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: EC2 instance type
+  KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: The name of an existing EC2 KeyPair to enable SSH access.
+  GitRepo:
+    Type: String
+    Default: "[github_link]"
+    Description: Git repository URL to clone.
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: StreamlitVPC
+
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH and Streamlit traffic
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0 # Allow SSH (Update this to restrict access)
+        - IpProtocol: tcp
+          FromPort: 8501
+          ToPort: 8501
+          CidrIp: 0.0.0.0/0 # Allow Streamlit
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Policies:
+        - PolicyName: StreamlitAppPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "s3:*"
+                  - "logs:*"
+                Resource: "*"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyPair
+      ImageId: ami-0c55b159cbfafe1f0 # Ubuntu 20.04 LTS (Change based on your region)
+      SecurityGroupIds:
+        - !Ref SecurityGroup
+      IamInstanceProfile: !Ref InstanceProfile
+      Tags:
+        - Key: Name
+          Value: StreamlitAppEC2
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -e
+          
+          # Update and upgrade system
+          sudo apt update && sudo apt upgrade -y
+
+          # Install necessary dependencies
+          sudo apt install -y python3 python3-pip tmux
+
+          # Install Tesseract-OCR (for Ubuntu/Debian)
+          sudo apt-get install -y tesseract-ocr-all
+
+          # Install Git and clone repository
+          sudo apt install -y git
+          git clone ${GitRepo} ChatBot
+          cd ChatBot
+
+          # Install Python dependencies
+          sudo pip install -r req.txt --upgrade
+
+          # Start Streamlit in a tmux session
+          tmux new -d -s mysession "cd ChatBot && python3 -m streamlit run bedrock-chat.py"
+
+          echo "Setup complete. Use 'tmux attach -t mysession' to view the session."
+
+Outputs:
+  EC2PublicIP:
+    Description: Public IP of the EC2 instance
+    Value: !GetAtt EC2Instance.PublicIp
+  SSHCommand:
+    Description: SSH command to connect to the instance
+    Value: !Sub "ssh -i your-key.pem ubuntu@${EC2Instance.PublicIp}"
+  StreamlitURL:
+    Description: Streamlit app URL
+    Value: !Sub "http://${EC2Instance.PublicIp}:8501"
