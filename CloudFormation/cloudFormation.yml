@@ -104,7 +104,8 @@ Resources:
           sudo pip install -r req.txt --upgrade
 
           # Start Streamlit in a tmux session
-          tmux new -d -s mysession "cd ChatBot && python3 -m streamlit run bedrock-chat.py"
+          tmux new -d -s mysession 
+          "cd ChatBot && python3 -m streamlit run bedrock-chat.py"
 
           echo "Setup complete. Use 'tmux attach -t mysession' to view the session."
 
