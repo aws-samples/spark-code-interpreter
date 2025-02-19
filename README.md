@@ -59,7 +59,7 @@ To use the **Advanced Analytics Feature**, this additional step is required (Cha
             --memory-size 512 \
             --timeout 300 \
             --region your-region
-        ```
+        ``````
 
         Modify the placeholders as appropiate. I recommend to keep `timeout` and `memory-size` params conservative as that will affect cost. A good staring point for memory is `512` MB.
         - Ignore step 8.
@@ -93,24 +93,85 @@ To customize the behavior for the conversational chatbot follow [these](https://
 
 
 ## Deploy and run Streamlit App on AWS EC2 (I tested this on the Ubuntu Image)
-* [Create a new ec2 instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EC2_GetStarted.html)
-* Expose TCP port range 8500-8510 on Inbound connections of the attached Security group to the ec2 instance. TCP port 8501 is needed for Streamlit to work. See image below
-* <img src="images/sg-rules.PNG" width="600"/>
-* EC2 [instance profile role](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html) has the required permissions to access the services used by this application mentioned above.
-* [Connect to your ec2 instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstances.html)
-* Run the appropiate commands to update the ec2 instance (`sudo apt update` and `sudo apt upgrade` -for Ubuntu)
-* Clone this git repo `git clone [github_link]`
-* Install python3 and pip if not already installed, `sudo apt install python3` and `sudo apt install python3-pip`.
-* If you decide to use Python Libs for PDF and image processing, this requires tesserect-ocr. Run the following command:
-    - If using Centos-OS or Amazon-Linux:
-        - sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-        - sudo yum -y update
-        - sudo yum install -y tesseract
-    - For Ubuntu or Debian:
-        - sudo apt-get install tesseract-ocr-all -y
-* Install the dependencies by running the command `sudo pip install -r req.txt --upgrade`
-* Run command `tmux new -s mysession` to create a new session. Then in the new session created `cd` into the **ChatBot** dir and run `python3 -m streamlit run bedrock-chat.py` to start the streamlit app. This allows you to run the Streamlit application in the background and keep it running even if you disconnect from the terminal session.
+
+## 1 Create an EC2 Instance  
+
+[➡️ AWS Guide: Create an EC2 Instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EC2_GetStarted.html)  
+
+## 2 Configure Security Group (Expose Required Ports)  
+
+Since **Streamlit** runs on **TCP port 8501**, you must allow inbound traffic.  
+
+### Steps:  
+1. In the **AWS EC2 Console**, navigate to **Security Groups**.  
+2. Select the **Security Group** attached to your EC2 instance.  
+3. Click **Edit inbound rules** and add the following
+ <img src="images/sg-rules.PNG" width="600"/>
+ 
+## 3 Attach the Instance Profile Role  
+
+Ensure the **EC2 instance profile role** has the required **IAM permissions** to access AWS services used in this application.  
+
+[➡️ AWS Guide: Assign an Instance Profile Role](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html)  
+
+## 4 Connect to Your EC2 Instance  
+
+[➡️ AWS Guide: Connect to Your EC2 Instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstances.html)  
+
+Run the following command to connect via SSH:  
+
+```bash
+ssh -i your-key.pem ubuntu@your-ec2-public-ip
+```
+## 5 Connect to Your EC2 Instance  
+* Run the appropiate commands to update the ec2 instance.
+```
+sudo apt update
+sudo apt upgrade
+```
+## 6 Clone this git repo
+```
+git clone [github_link]
+```
+
+## 7 Install Python3 and Pip
+
+If Python3 and Pip are not already installed, run the following command:
+
+```sh
+sudo apt install python3 python3-pip -y
+```
+## 8 Install Tesseract-OCR for PDF and Image Processing
+
+If you decide to use Python libraries for PDF and image processing, you need to install **Tesseract-OCR**. Run the appropriate command based on your operating system:
+
+### 9 For CentOS or Amazon Linux:
+
+```sh
+sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+sudo yum -y update
+sudo yum install -y tesseract
+```
+## 10 Install Dependencies and Run the Streamlit App
+
+### Install Dependencies
+
+Run the following command to install the required dependencies:
+
+```sh
+sudo pip install -r req.txt --upgrade
+```
+## 11 Run the Streamlit App in a `tmux` Session
+### Start a `tmux` Session and Launch the Streamlit App
+* tmux allows your Streamlit app to keep running even after you disconnect from the SSH session, ensuring uninterrupted execution.
+* Run command
+*    ```tmux new -s mysession``` to create a new session.
+* Then in the new session created `cd` into the **ChatBot** dir and run below to start the stream lit app. This allows you to run the Streamlit application in the background and keep it running even if you disconnect from the terminal session.
+  ```python3 -m streamlit run bedrock-chat.py
+  ```
 * Copy the **External URL** link generated and paste in a new browser tab.
+
+  
 * **⚠ NOTE:** The generated link is not secure! For [additional guidance](https://github.com/aws-samples/deploy-streamlit-app). 
 To stop the `tmux` session, in your ec2 terminal Press `Ctrl+b`, then `d` to detach. to kill the session, run `tmux kill-session -t mysession`
 
