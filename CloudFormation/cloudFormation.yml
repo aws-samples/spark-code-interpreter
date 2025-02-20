@@ -1,18 +1,19 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CloudFormation template to set up an EC2 instance with Streamlit and necessary configurations.
+Description: |
+  CloudFormation template to set up an EC2 instance with the Bluebear Streamlit application. This template creates a VPC with a public subnet (including an Internet Gateway and route) so that the instance gets a public IP address.
 
 Parameters:
   InstanceType:
+    Description: EC2 instance type
     Type: String
     Default: t3.micro
-    Description: EC2 instance type
   KeyPair:
-    Type: AWS::EC2::KeyPair::KeyName
     Description: The name of an existing EC2 KeyPair to enable SSH access.
+    Type: AWS::EC2::KeyPair::KeyName
   GitRepo:
-    Type: String
-    Default: "[github_link]"
     Description: Git repository URL to clone.
+    Type: String
+    Default: '[github_link]'
 
 Resources:
   VPC:
@@ -23,7 +24,55 @@ Resources:
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: StreamlitVPC
+          Value: BluebearVPC
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: BluebearPublicSubnet
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: BluebearIGW
+
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: BluebearPublicRouteTable
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
 
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -34,34 +83,34 @@ Resources:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: 0.0.0.0/0 # Allow SSH (Update this to restrict access)
+          CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: 8501
           ToPort: 8501
-          CidrIp: 0.0.0.0/0 # Allow Streamlit
+          CidrIp: 0.0.0.0/0
 
   InstanceRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
               Service:
                 - ec2.amazonaws.com
             Action:
-              - "sts:AssumeRole"
+              - sts:AssumeRole
       Policies:
-        - PolicyName: StreamlitAppPolicy
+        - PolicyName: BluebearAppPolicy
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
-                  - "s3:*"
-                  - "logs:*"
-                Resource: "*"
+                  - s3:*
+                  - logs:*
+                Resource: '*'
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -74,38 +123,37 @@ Resources:
     Properties:
       InstanceType: !Ref InstanceType
       KeyName: !Ref KeyPair
-      ImageId: ami-0c55b159cbfafe1f0 # Ubuntu 20.04 LTS (Change based on your region)
+      ImageId: ami-04b4f1a9cf54c11d0 # Ubuntu 20.04 LTS (ensure this is available in your region)
+      SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref SecurityGroup
       IamInstanceProfile: !Ref InstanceProfile
       Tags:
         - Key: Name
-          Value: StreamlitAppEC2
-      UserData:
-        Fn::Base64: !Sub |
+          Value: BluebearAppEC2
+      UserData: !Base64
+        Fn::Sub: |
           #!/bin/bash
           set -e
-          
+
           # Update and upgrade system
-          sudo apt update && sudo apt upgrade -y
+          apt update && apt upgrade -y
 
-          # Install necessary dependencies
-          sudo apt install -y python3 python3-pip tmux
+          # Install necessary dependencies: Python, tmux, and Git
+          apt install -y python3 python3-pip tmux git
 
-          # Install Tesseract-OCR (for Ubuntu/Debian)
-          sudo apt-get install -y tesseract-ocr-all
+          # Optionally install Tesseract-OCR; if it fails, log the error and continue.
+          apt install -y tesseract-ocr-all || echo "Optional dependency tesseract-ocr-all installation failed, continuing..."
 
-          # Install Git and clone repository
-          sudo apt install -y git
-          git clone ${GitRepo} ChatBot
-          cd ChatBot
+          # Clone the Git repository into a folder named Bluebear
+          git clone ${GitRepo} Bluebear
+          cd Bluebear
 
           # Install Python dependencies
-          sudo pip install -r req.txt --upgrade
+          pip3 install -r req.txt --upgrade
 
-          # Start Streamlit in a tmux session
-          tmux new -d -s mysession 
-          "cd ChatBot && python3 -m streamlit run bedrock-chat.py"
+          # Start the Bluebear Streamlit app in a tmux session
+          tmux new -d -s mysession "python3 -m streamlit run bluebear.py"
 
           echo "Setup complete. Use 'tmux attach -t mysession' to view the session."
 
@@ -114,8 +162,9 @@ Outputs:
     Description: Public IP of the EC2 instance
     Value: !GetAtt EC2Instance.PublicIp
   SSHCommand:
-    Description: SSH command to connect to the instance
-    Value: !Sub "ssh -i your-key.pem ubuntu@${EC2Instance.PublicIp}"
+    Description: SSH command to connect to the instance (replace 'your-key.pem' with
+      your private key file)
+    Value: !Sub ssh -i your-key.pem ubuntu@${EC2Instance.PublicIp}
   StreamlitURL:
-    Description: Streamlit app URL
-    Value: !Sub "http://${EC2Instance.PublicIp}:8501"
+    Description: URL to access the Bluebear Streamlit app
+    Value: !Sub http://${EC2Instance.PublicIp}:8501
