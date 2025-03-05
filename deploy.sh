@@ -2,14 +2,15 @@
 
 # Check if required parameters are provided
 if [ $# -ne 3 ]; then
-    echo "Usage: $0 <aws-account-id> <aws-region> <ecr-repo-name>"
-    echo "Example: $0 123456789012 us-east-1 sparkonlambda"
+    echo "Usage: $0 <aws-account-id> <aws-region> <ec2-key-pair>"
+    echo "Example: $0 123456789012 us-east-1 myec2key"
     exit 1
 fi
 
 # Configuration variables
 AWS_ACCOUNT_ID=$1
 AWS_REGION=$2
+EC2_KEY=$3
 ECR_REPOSITORY_NAME="sparkonlambda"
 IMAGE_TAG="latest"
 
@@ -42,4 +43,4 @@ echo "Done! SparkonLambda Image has been built and pushed to ECR successfully."
 
 echo "Inititaing deployment of the bedrock application"
 cd ../Cloudformation
-sam deploy --template-file cloudFormation.yml --stack-name spark-code-interpreter --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --resolve-s3 --image-repository ${ECR_REPOSITORY_URI} --parameter-overrides  "ParameterKey=ImageUri,ParameterValue=${ECR_REPOSITORY_URI}:${IMAGE_TAG}"
+sam deploy --template-file cloudFormation.yml --stack-name spark-code-interpreter --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --resolve-s3 --image-repository ${ECR_REPOSITORY_URI} --parameter-overrides  "ParameterKey=ImageUri,ParameterValue=${ECR_REPOSITORY_URI}:${IMAGE_TAG} ParameterKey=KeyPair,ParameterValue=${EC2_KEY}"

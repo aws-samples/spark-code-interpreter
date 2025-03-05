@@ -1,4 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
 Description: |
   CloudFormation template to set up an EC2 instance with the Bluebear Streamlit application. This template creates a VPC with a public subnet (including an Internet Gateway and route) so that the instance gets a public IP address.
 
@@ -13,7 +14,7 @@ Parameters:
   GitRepo:
     Description: Git repository URL to clone.
     Type: String
-    Default: '[github_link]'
+    Default: 'https://github.com/aws-samples/spark-code-interpreter.git'
   ImageUri:
     Description: 'ECR URI for the  SparkOnLmabda image'
     Type: String
@@ -181,7 +182,7 @@ Resources:
       FunctionName: !Sub 'sparkOnLambda-${AWS::StackName}'
       ImageUri: !Ref ImageUri
       ImageConfig:
-        Command: /var/task/sparkLambdaHandler.lambda_handler
+        Command: ["/var/task/sparkLambdaHandler.lambda_handler"]
       Description: "Lambda to run spark containers"
       Timeout: 900
       MemorySize: 3008
@@ -249,6 +250,12 @@ Resources:
 
           # Install Python dependencies
           pip3 install -r req.txt --upgrade
+
+          #Set configurations for Lambda Name and Bucket Name
+          sed -i 's/fairstone/${S3Bucket}/g' config.json
+          sed -i 's/soal/${SparkOnLambda}/g' config.json
+          echo "FINAL CONFIGURATIONS"
+          cat config.json
 
           # Start the Bluebear Streamlit app in a tmux session
           tmux new -d -s mysession "python3 -m streamlit run bluebear.py"
