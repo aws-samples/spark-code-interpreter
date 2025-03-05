@@ -14,6 +14,19 @@ Parameters:
     Description: Git repository URL to clone.
     Type: String
     Default: '[github_link]'
+  ImageUri:
+    Description: 'ECR URI for the  SparkOnLmabda image'
+    Type: String
+    Default: ''
+  LambdaTimeout:
+    Description: 'Optional: Maximum Lambda invocation runtime in seconds. (min 1 - 900 max)'
+    Default: 900
+    Type: Number
+  LambdaMemory:
+    Description: 'Optional: Lambda memory in MB (min 128 - 10,240 max).'
+    Default: 3008
+    Type: Number 
+
 
 Resources:
   VPC:
@@ -85,9 +98,94 @@ Resources:
           ToPort: 22
           CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0          
+        - IpProtocol: tcp
           FromPort: 8501
           ToPort: 8501
           CidrIp: 0.0.0.0/0
+
+  SparkOnLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Description: 'Role used by the lambda running spark'
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole' 
+
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Join 
+        - '-'
+        - - "bedrock-data-bucket"
+          - !Ref 'AWS::AccountId'
+          - !Ref 'AWS::Region'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  SparkOnLambdaPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: !Sub 'SparkOnLmandaDefaulPolicy-${AWS::StackName}'
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+            Resource:
+              Fn::Sub:
+                - "arn:aws:ecr:${Region}:${Account}:repository/${RepositoryName}"
+                - Region: !Select [3, !Split [".", !Ref ImageUri ]]
+                  Account: !Select [0, !Split [".", !Ref ImageUri ]]
+                  RepositoryName: !Select [1, !Split ["/", !Select [ 0, !Split [":", !Select [5, !Split [".", !Ref ImageUri ]]]]]]
+          - Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource: !GetAtt S3Bucket.Arn
+          - Effect: Allow
+            Action:
+              - s3:Get*
+            Resource: !GetAtt S3Bucket.Arn
+      Roles:
+        - !Ref SparkOnLambdaRole      
+
+  SparkOnLambda:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      PackageType: Image
+      FunctionName: !Sub 'sparkOnLambda-${AWS::StackName}'
+      ImageUri: !Ref ImageUri
+      ImageConfig:
+        Command: /var/task/sparkLambdaHandler.lambda_handler
+      Description: "Lambda to run spark containers"
+      Timeout: 900
+      MemorySize: 3008
+      Role: !GetAtt SparkOnLambdaRole.Arn       
 
   InstanceRole:
     Type: AWS::IAM::Role
