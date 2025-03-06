@@ -249,7 +249,7 @@ Resources:
           cd Bluebear
 
           # Install Python dependencies
-          pip3 install -r req.txt --upgrade
+          pip3 install -r req.txt --upgrade --break-system-packages
 
           #Set configurations for Lambda Name and Bucket Name
           sed -i 's/fairstone/${S3Bucket}/g' config.json
