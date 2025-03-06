@@ -237,19 +237,24 @@ Resources:
 
           # Update and upgrade system
           apt update && apt upgrade -y
+          sudo apt install software-properties-common -y
+          sudo add-apt-repository ppa:deadsnakes/ppa
+          sudo apt install libffi-dev libssl-dev python3.11 python3.11-venv python3.11-dev tmux git  build-essential -y 
+          ls -la /usr/bin/python3
+          sudo rm /usr/bin/python3
+          sudo ln -s python3.11 /usr/bin/python3
 
-          # Install necessary dependencies: Python, tmux, and Git
-          apt install -y python3 python3-pip tmux git
 
           # Optionally install Tesseract-OCR; if it fails, log the error and continue.
           apt install -y tesseract-ocr-all || echo "Optional dependency tesseract-ocr-all installation failed, continuing..."
 
           # Clone the Git repository into a folder named Bluebear
+          echo "Clonging repo ${GitRepo}"
           git clone ${GitRepo} Bluebear
           cd Bluebear
 
           # Install Python dependencies
-          pip3 install -r req.txt --upgrade --break-system-packages
+          python3 -m pip install -r req.txt --upgrade --break-system-packages
 
           #Set configurations for Lambda Name and Bucket Name
           sed -i 's/fairstone/${S3Bucket}/g' config.json
