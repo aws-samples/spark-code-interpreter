@@ -222,7 +222,7 @@ Resources:
     Properties:
       InstanceType: !Ref InstanceType
       KeyName: !Ref KeyPair
-      ImageId: ami-04b4f1a9cf54c11d0 # Ubuntu 20.04 LTS (ensure this is available in your region)
+      ImageId: ami-0cb91c7de36eed2cb # Ubuntu 20.04 LTS (ensure this is available in your region)
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref SecurityGroup
