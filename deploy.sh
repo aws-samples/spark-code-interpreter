@@ -35,12 +35,17 @@ docker build -t ${ECR_REPOSITORY_NAME}:${IMAGE_TAG} .
 echo "Tagging Docker image..."
 docker tag ${ECR_REPOSITORY_NAME}:${IMAGE_TAG} ${ECR_REPOSITORY_URI}:${IMAGE_TAG}
 
+echo "Logging in to Amazon ECR..."
+aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+
+
 # Push Docker image to ECR
 echo "Pushing Docker image to ECR..."
+echo "Pushu Docker image ${ECR_REPOSITORY_URI}:${IMAGE_TAG} ..."
 docker push ${ECR_REPOSITORY_URI}:${IMAGE_TAG}
 
 echo "Done! SparkonLambda Image has been built and pushed to ECR successfully."
 
 echo "Inititaing deployment of the bedrock application"
-cd ../Cloudformation
+cd /home/ec2-user/environment/spark-code-interpreter/CloudFormation/
 sam deploy --template-file cloudFormation.yml --region ${AWS_REGION} --stack-name spark-code-interpreter --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --resolve-s3 --image-repository ${ECR_REPOSITORY_URI} --parameter-overrides  "ParameterKey=ImageUri,ParameterValue=${ECR_REPOSITORY_URI}:${IMAGE_TAG} ParameterKey=KeyPair,ParameterValue=${EC2_KEY}"
