@@ -28,6 +28,9 @@ Parameters:
     Default: 3008
     Type: Number 
 
+Conditions:
+  S3BucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
+  ChatDataBucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
 
 Resources:
   VPC:
@@ -107,6 +110,79 @@ Resources:
           ToPort: 8501
           CidrIp: 0.0.0.0/0
 
+  ChatHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Join 
+        - '-'
+        - - "chat-history"
+          - !Ref 'AWS::StackName'
+          - !Ref 'AWS::AccountId'
+          - !Ref 'AWS::Region'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: UserId
+          AttributeType: S
+        - AttributeName: SessionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: UserId
+          KeyType: HASH
+        - AttributeName: SessionId
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: true
+      Tags:
+        - Key: Name
+          Value: ChatHistoryTable
+
+   S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Condition: !Not [!Condition S3BucketExists]
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Join 
+        - '-'
+        - - "bedrock-data-bucket"
+          - !Ref 'AWS::StackName'
+          - !Ref 'AWS::AccountId'
+          - !Ref 'AWS::Region'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  ChatDataBucket:
+    Type: 'AWS::S3::Bucket'
+    Condition: !Not [!Condition ChatDataBucketExists]
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Join 
+        - '-'
+        - - "bluebear-chat-data"
+          - !Ref 'AWS::StackName'
+          - !Ref 'AWS::AccountId'
+          - !Ref 'AWS::Region'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
   SparkOnLambdaRole:
     Type: 'AWS::IAM::Role'
     Properties:
@@ -123,31 +199,12 @@ Resources:
                 - 'lambda.amazonaws.com'
             Action: 'sts:AssumeRole' 
 
-  S3Bucket:
-    Type: 'AWS::S3::Bucket'
-    Properties:
-      BucketName: !Join 
-        - '-'
-        - - "bedrock-data-bucket"
-          - !Ref 'AWS::AccountId'
-          - !Ref 'AWS::Region'
-      VersioningConfiguration:
-        Status: Enabled
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-
   SparkOnLambdaPolicy:
     Type: 'AWS::IAM::Policy'
     Properties:
       PolicyName: !Sub 'SparkOnLmandaDefaulPolicy-${AWS::StackName}'
       PolicyDocument:
+        Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Action:
@@ -167,14 +224,22 @@ Resources:
           - Effect: Allow
             Action:
               - s3:ListBucket
-            Resource: !GetAtt S3Bucket.Arn
+              - s3:GetObject
+              - s3:PutObject
+            Resource: 
+              - !If [S3BucketExists, !Sub 'arn:aws:s3:::bedrock-data-bucket-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}', !GetAtt S3Bucket.Arn]
+              - !If [S3BucketExists, !Sub 'arn:aws:s3:::bedrock-data-bucket-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}/*', !Sub '${S3Bucket.Arn}/*']
+              - !If [ChatDataBucketExists, !Sub 'arn:aws:s3:::bluebear-chat-data-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}', !GetAtt ChatDataBucket.Arn]
+              - !If [ChatDataBucketExists, !Sub 'arn:aws:s3:::bluebear-chat-data-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}/*', !Sub '${ChatDataBucket.Arn}/*']
           - Effect: Allow
             Action:
-              - s3:Get*
-            Resource: !GetAtt S3Bucket.Arn
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+              - dynamodb:Query
+            Resource: !GetAtt ChatHistoryTable.Arn
       Roles:
-        - !Ref SparkOnLambdaRole      
-
+        - !Ref SparkOnLambdaRole
   SparkOnLambda:
     Type: 'AWS::Serverless::Function'
     Properties:
@@ -184,8 +249,8 @@ Resources:
       ImageConfig:
         Command: ["/var/task/sparkLambdaHandler.lambda_handler"]
       Description: "Lambda to run spark containers"
-      Timeout: 900
-      MemorySize: 3008
+      Timeout: !Ref LambdaTimeout
+      MemorySize: !Ref LambdaMemory
       Role: !GetAtt SparkOnLambdaRole.Arn       
 
   InstanceRole:
@@ -207,9 +272,41 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:*
                   - logs:*
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:BatchGetItem
+                Resource: !GetAtt ChatHistoryTable.Arn
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:PutObjectTagging
+                  - s3:GetObjectTagging
+                  - s3:DeleteObjectTagging
+                Resource: 
+                  - !If [S3BucketExists, !Sub 'arn:aws:s3:::bedrock-data-bucket-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}', !GetAtt S3Bucket.Arn]
+                  - !If [S3BucketExists, !Sub 'arn:aws:s3:::bedrock-data-bucket-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}/*', !Sub '${S3Bucket.Arn}/*']
+                  - !If [ChatDataBucketExists, !Sub 'arn:aws:s3:::bluebear-chat-data-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}', !GetAtt ChatDataBucket.Arn]
+                  - !If [ChatDataBucketExists, !Sub 'arn:aws:s3:::bluebear-chat-data-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}/*', !Sub '${ChatDataBucket.Arn}/*']
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                Resource: 'arn:aws:s3:::*'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt SparkOnLambda.Arn
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -239,31 +336,30 @@ Resources:
           apt update && apt upgrade -y
           sudo apt install software-properties-common -y
           sudo add-apt-repository ppa:deadsnakes/ppa
-          sudo apt install libffi-dev libssl-dev python3.11 python3.11-venv python3.11-dev tmux git  build-essential -y 
+          sudo apt install libffi-dev libssl-dev python3.11 python3.11-venv python3.11-dev tmux git build-essential -y 
           ls -la /usr/bin/python3
           sudo rm /usr/bin/python3
           sudo ln -s python3.11 /usr/bin/python3
-
 
           # Optionally install Tesseract-OCR; if it fails, log the error and continue.
           apt install -y tesseract-ocr-all || echo "Optional dependency tesseract-ocr-all installation failed, continuing..."
 
           # Clone the Git repository into a folder named Bluebear
-          echo "Clonging repo ${GitRepo}"
+          echo "Cloning repo ${GitRepo}"
           git clone ${GitRepo} Bluebear
           cd Bluebear
 
           # Install Python dependencies
           python3 -m pip install -r req.txt --upgrade --break-system-packages
 
-          #Set configurations for Lambda Name and Bucket Name
+          # Set configurations for Lambda Name and Bucket Name
           sed -i 's/fairstone/${S3Bucket}/g' config.json
           sed -i 's/soal/${SparkOnLambda}/g' config.json
           echo "FINAL CONFIGURATIONS"
           cat config.json
 
           # Start the Bluebear Streamlit app in a tmux session
-          tmux new -d -s mysession "python3 -m streamlit run bluebear.py"
+          tmux new -d -s mysession "python3 -m streamlit run bedrock-chat.py"
 
           echo "Setup complete. Use 'tmux attach -t mysession' to view the session."
 
@@ -272,9 +368,32 @@ Outputs:
     Description: Public IP of the EC2 instance
     Value: !GetAtt EC2Instance.PublicIp
   SSHCommand:
-    Description: SSH command to connect to the instance (replace 'your-key.pem' with
-      your private key file)
+    Description: SSH command to connect to the instance (replace 'your-key.pem' with your private key file)
     Value: !Sub ssh -i your-key.pem ubuntu@${EC2Instance.PublicIp}
   StreamlitURL:
     Description: URL to access the Bluebear Streamlit app
     Value: !Sub http://${EC2Instance.PublicIp}:8501
+  S3BucketName:
+    Description: Name of the S3 bucket for Bedrock data
+    Value: !If 
+      - S3BucketExists
+      - !Sub 'bedrock-data-bucket-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}'
+      - !Ref S3Bucket
+  ChatDataBucketName:
+    Description: Name of the S3 bucket for chat data
+    Value: !If 
+      - ChatDataBucketExists
+      - !Sub 'bluebear-chat-data-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}'
+      - !Ref ChatDataBucket
+  ChatHistoryTableName:
+    Description: Name of the DynamoDB table for chat history
+    Value: !Ref ChatHistoryTable
+  S3BucketWarning:
+    Condition: S3BucketExists
+    Description: Warning about existing S3 bucket
+    Value: "The S3 bucket 'bedrock-data-bucket' already exists. Using existing bucket."
+  ChatDataBucketWarning:
+    Condition: ChatDataBucketExists
+    Description: Warning about existing Chat Data S3 bucket
+    Value: "The S3 bucket 'bluebear-chat-data' already exists. Using existing bucket."
+  
