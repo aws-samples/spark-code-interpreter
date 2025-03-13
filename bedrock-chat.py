@@ -1063,7 +1063,7 @@ def get_key_from_value(dictionary, value):
     return next((key for key, val in dictionary.items() if val == value), None)
     
 def chat_bedrock_(params):
-    st.title('Chatty AI Assitant 🙂')
+    st.title('BigData Analysis AI Assitant 🙂')
     params['chat_histories']=[]   
     if params["session_id"].strip():
         st.session_state.messages, params['chat_histories']=get_chat_historie_for_streamlit(params)
