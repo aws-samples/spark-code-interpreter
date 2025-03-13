@@ -1063,7 +1063,7 @@ def get_key_from_value(dictionary, value):
     return next((key for key, val in dictionary.items() if val == value), None)
     
 def chat_bedrock_(params):
-    st.title('BigData Analysis AI Assitant 🙂')
+    #st.title('BigData Analysis AI Assitant 🙂')
     params['chat_histories']=[]   
     if params["session_id"].strip():
         st.session_state.messages, params['chat_histories']=get_chat_historie_for_streamlit(params)
@@ -1224,6 +1224,14 @@ def app_sidebar():
                 default=None,
                 help="Select additional tools to enhance chat capabilities"
             )
+            # Tool selection interface
+            engine = st.multiselect(
+                "**Spark Engine**",
+                ["Single Node-Spark on AWS Lambda","Amazon EMR Serverless","other"],
+                key="Spark engine",
+                default=None,
+                help="Select spark engine"
+            )
 
             # S3 bucket file listing and selection
             bucket_items = list_csv_xlsx_in_s3_folder(INPUT_BUCKET, INPUT_S3_PATH)
@@ -1273,11 +1281,10 @@ def app_sidebar():
             # Return basic parameters to prevent application crash
             return {"model": model, "session_id": str(time.time()), "chat_item": "New Chat"}
 
-
 def main():
     # Add an application or chatbot header here
     st.title("BlueBear Agentic AI for Business uers ")
-    st.header("Conversational AI Assistant Powered by Amazon Bedrock agent")
+    st.markdown("<p class='small-header'>Conversational AI Assistant Powered by Amazon Bedrock agent</p>", unsafe_allow_html=True)
     params=app_sidebar()
     chat_bedrock_(params)
 
