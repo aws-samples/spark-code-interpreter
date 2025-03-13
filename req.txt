@@ -1,5 +1,3 @@
-packaging
-setuptools
 streamlit
 boto3
 pymupdf
