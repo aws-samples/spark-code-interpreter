@@ -1,3 +1,15 @@
+"""
+AWS Bedrock Chat Application
+
+This module implements a chat interface using AWS Bedrock and various AWS services.
+It handles document processing, chat history management, and multiple file format support.
+
+Dependencies:
+    - AWS SDK (boto3)
+    - Streamlit
+    - Various document processing libraries
+"""
+
 import streamlit as st
 import boto3
 from botocore.config import Config
@@ -50,6 +62,7 @@ with open('config.json','r',encoding='utf-8') as f:
 with open('pricing.json','r',encoding='utf-8') as f:
     pricing_file = json.load(f)
 
+# Configuration constants
 S3 = boto3.client('s3')
 DYNAMODB  = boto3.resource('dynamodb')
 COGNITO = boto3.client('cognito-idp')
