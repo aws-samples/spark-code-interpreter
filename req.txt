@@ -15,5 +15,3 @@ python-calamine
 s3fs
 textract==1.6.3
 plotly
-logger
-chardet
