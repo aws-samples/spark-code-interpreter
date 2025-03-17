@@ -135,6 +135,22 @@ Resources:
           FromPort: 8501
           ToPort: 8501
           CidrIp: !Ref MyIp
+        # SSH access from EC2 Instance Connect (adjust CIDR based on your region)
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 3.16.146.0/29    # US East (Ohio)
+          Description: EC2 Instance Connect - US East (Ohio)
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 18.206.107.24/29  # US East (N. Virginia)
+          Description: EC2 Instance Connect - US East (N. Virginia)
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 3.120.181.40/29   # Europe (Frankfurt)
+          Description: EC2 Instance Connect - Europe (Frankfurt)
 
   ChatHistoryTable:
     Type: AWS::DynamoDB::Table

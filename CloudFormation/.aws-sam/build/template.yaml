@@ -136,6 +136,21 @@ Resources:
         ToPort: 8501
         CidrIp:
           Ref: MyIp
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 3.16.146.0/29
+        Description: EC2 Instance Connect - US East (Ohio)
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 18.206.107.24/29
+        Description: EC2 Instance Connect - US East (N. Virginia)
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 3.120.181.40/29
+        Description: EC2 Instance Connect - Europe (Frankfurt)
   ChatHistoryTable:
     Type: AWS::DynamoDB::Table
     Properties:
