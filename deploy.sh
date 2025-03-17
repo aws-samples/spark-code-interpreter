@@ -1,21 +1,41 @@
 #!/bin/bash
 
 # Check if required parameters are provided
-if [ $# -ne 3 ]; then
-    echo "Usage: $0 <aws-account-id> <aws-region> <ec2-key-pair>"
-    echo "Example: $0 123456789012 us-east-1 myec2key"
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <aws-account-id> <aws-region>"
+    echo "Example: $0 123456789012 us-east-1"
     exit 1
 fi
 
 # Configuration variables
 AWS_ACCOUNT_ID=$1
 AWS_REGION=$2
-EC2_KEY=$3
+#EC2_KEY=$3
 ECR_REPOSITORY_NAME="sparkonlambda"
 IMAGE_TAG="latest"
-
 # ECR repository URL
 ECR_REPOSITORY_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY_NAME}"
+
+# Read values from config.json
+# Using ["key-name"] syntax for keys with hyphens
+DYNAMODB_TABLE=$(jq -r '.DynamodbTable' config.json)
+USER_ID=$(jq -r '.UserId' config.json)
+BUCKET_NAME=$(jq -r '.Bucket_Name' config.json)
+INPUT_BUCKET=$(jq -r '.input_bucket' config.json)
+INPUT_S3_PATH=$(jq -r '.input_s3_path' config.json)
+LAMBDA_FUNCTION=$(jq -r '.["lambda-function"]' config.json)
+
+# Verify if jq successfully extracted the values
+if [ -z "$DYNAMODB_TABLE" ] || [ -z "$USER_ID" ] || [ -z "$BUCKET_NAME" ] || [ -z "$INPUT_BUCKET" ] || [ -z "$INPUT_S3_PATH" ] || [ -z "$LAMBDA_FUNCTION" ]; then
+    echo "Error: Failed to read one or more values from config.json"
+    echo "DynamoDB Table: $DYNAMODB_TABLE"
+    echo "User ID: $USER_ID"
+    echo "Bucket Name: $BUCKET_NAME"
+    echo "Input Bucket: $INPUT_BUCKET"
+    echo "Input S3 Path: $INPUT_S3_PATH"
+    echo "Lambda Function: $LAMBDA_FUNCTION"
+    exit 1
+fi
 
 # Authenticate Docker to ECR
 echo "Logging in to Amazon ECR..."
@@ -46,6 +66,25 @@ docker push ${ECR_REPOSITORY_URI}:${IMAGE_TAG}
 
 echo "Done! SparkonLambda Image has been built and pushed to ECR successfully."
 
+# Add this near the top of your deploy.sh script
+MY_IP=$(curl -s https://checkip.amazonaws.com)/32
+
 echo "Inititaing deployment of the bedrock application"
 cd ../CloudFormation/
-sam deploy --template-file cloudFormation.yml --region ${AWS_REGION} --stack-name spark-code-interpreter --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM --resolve-s3 --image-repository ${ECR_REPOSITORY_URI} --parameter-overrides  "ParameterKey=ImageUri,ParameterValue=${ECR_REPOSITORY_URI}:${IMAGE_TAG} ParameterKey=KeyPair,ParameterValue=${EC2_KEY}"
+sam deploy \
+    --template-file cloudFormation.yml \
+    --region ${AWS_REGION} \
+    --stack-name spark-code-interpreter \
+    --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+    --resolve-s3 \
+    --image-repository ${ECR_REPOSITORY_URI} \
+    --parameter-overrides \
+        ImageUri=${ECR_REPOSITORY_URI}:${IMAGE_TAG} \
+        DynamoDBTable=${DYNAMODB_TABLE} \
+        UserId=${USER_ID} \
+        BucketName=${BUCKET_NAME} \
+        InputBucket=${INPUT_BUCKET} \
+        InputS3Path=${INPUT_S3_PATH} \
+        LambdaFunction=${LAMBDA_FUNCTION} \
+        MyIp=${MY_IP}
+

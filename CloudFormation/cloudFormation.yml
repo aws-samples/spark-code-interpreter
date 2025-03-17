@@ -8,9 +8,9 @@ Parameters:
     Description: EC2 instance type
     Type: String
     Default: t3.micro
-  KeyPair:
-    Description: The name of an existing EC2 KeyPair to enable SSH access.
-    Type: AWS::EC2::KeyPair::KeyName
+#  KeyPair:
+#    Description: The name of an existing EC2 KeyPair to enable SSH access.
+#    Type: AWS::EC2::KeyPair::KeyName
   GitRepo:
     Description: Git repository URL to clone.
     Type: String
@@ -31,6 +31,28 @@ Parameters:
     Description: "Ec2 AMI Id to host the bedrock chat agent"
     Default: 'ami-04b4f1a9cf54c11d0'
     Type: String
+  DynamoDBTable:
+    Type: String
+    Description: DynamoDB table name
+  UserId:
+    Type: String
+    Description: User ID
+  BucketName:
+    Type: String
+    Description: Main bucket name
+  InputBucket:
+    Type: String
+    Description: Input bucket name
+  InputS3Path:
+    Type: String
+    Description: Input S3 path
+  LambdaFunction:
+    Type: String
+    Description: Lambda function name
+  MyIp:
+    Type: String
+    Description: Your IP address in CIDR notation (e.g., 1.2.3.4/32)
+    AllowedPattern: ^([0-9]{1,3}\.){3}[0-9]{1,3}/32$
 
 # Conditions:
 #   S3BucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
@@ -104,15 +126,15 @@ Resources:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref MyIp
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          CidrIp: 0.0.0.0/0          
+          CidrIp: !Ref MyIp          
         - IpProtocol: tcp
           FromPort: 8501
           ToPort: 8501
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref MyIp
 
   ChatHistoryTable:
     Type: AWS::DynamoDB::Table
@@ -316,7 +338,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
-      KeyName: !Ref KeyPair
+      #KeyName: !Ref KeyPair
       ImageId: !Ref EC2AmiId # Ubuntu 20.04 LTS (ensure this is available in your region)
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
