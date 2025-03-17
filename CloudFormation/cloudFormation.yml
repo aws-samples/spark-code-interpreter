@@ -336,6 +336,7 @@ Resources:
           sudo add-apt-repository ppa:deadsnakes/ppa
           sudo apt install libffi-dev libssl-dev python3.11 python3.11-venv python3.11-dev tmux git build-essential python3-pip -y 
           # textract installtion pre-requisites
+          # https://textract.readthedocs.io/en/stable/installation.html#ubuntu-debian
           sudo apt install libxml2-dev libxslt1-dev antiword unrtf poppler-utils tesseract-ocr flac ffmpeg lame libmad0 libsox-fmt-mp3 sox libjpeg-dev swig -y
           ls -la /usr/bin/python3
           sudo rm /usr/bin/python3
