@@ -8,9 +8,9 @@ Parameters:
     Description: EC2 instance type
     Type: String
     Default: t3.micro
-  KeyPair:
-    Description: The name of an existing EC2 KeyPair to enable SSH access.
-    Type: AWS::EC2::KeyPair::KeyName
+#  KeyPair:
+#    Description: The name of an existing EC2 KeyPair to enable SSH access.
+#    Type: AWS::EC2::KeyPair::KeyName
   GitRepo:
     Description: Git repository URL to clone.
     Type: String
@@ -35,7 +35,28 @@ Parameters:
     Description: "Git branch for Interpreter"
     Default: 'feature/sloanintegration'
     Type: String
-
+  DynamoDBTable:
+    Type: String
+    Description: DynamoDB table name
+  UserId:
+    Type: String
+    Description: User ID
+  BucketName:
+    Type: String
+    Description: Main bucket name
+  InputBucket:
+    Type: String
+    Description: Input bucket name
+  InputS3Path:
+    Type: String
+    Description: Input S3 path
+  LambdaFunction:
+    Type: String
+    Description: Lambda function name
+  MyIp:
+    Type: String
+    Description: Your IP address in CIDR notation (e.g., 1.2.3.4/32)
+    AllowedPattern: ^([0-9]{1,3}\.){3}[0-9]{1,3}/32$
 
 # Conditions:
 #   S3BucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
@@ -109,15 +130,31 @@ Resources:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref MyIp
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          CidrIp: 0.0.0.0/0          
+          CidrIp: !Ref MyIp          
         - IpProtocol: tcp
           FromPort: 8501
           ToPort: 8501
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref MyIp
+        # SSH access from EC2 Instance Connect (adjust CIDR based on your region)
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 3.16.146.0/29    # US East (Ohio)
+          Description: EC2 Instance Connect - US East (Ohio)
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 18.206.107.24/29  # US East (N. Virginia)
+          Description: EC2 Instance Connect - US East (N. Virginia)
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 3.120.181.40/29   # Europe (Frankfurt)
+          Description: EC2 Instance Connect - Europe (Frankfurt)
 
   ChatHistoryTable:
     Type: AWS::DynamoDB::Table
@@ -321,7 +358,7 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
-      KeyName: !Ref KeyPair
+      #KeyName: !Ref KeyPair
       ImageId: !Ref EC2AmiId # Ubuntu 20.04 LTS (ensure this is available in your region)
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
