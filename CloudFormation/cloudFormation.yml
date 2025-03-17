@@ -31,6 +31,11 @@ Parameters:
     Description: "Ec2 AMI Id to host the bedrock chat agent"
     Default: 'ami-04b4f1a9cf54c11d0'
     Type: String
+  GitBranch:
+    Description: "Git branch for Interpreter"
+    Default: 'feature/sloanintegration'
+    Type: String
+
 
 # Conditions:
 #   S3BucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
@@ -347,7 +352,7 @@ Resources:
 
           # Clone the Git repository into a folder named Bluebear
           echo "Cloning repo ${GitRepo}"
-          git clone ${GitRepo} bluebear
+          git clone -b ${GitBranch} ${GitRepo} bluebear
           cd bluebear
 
           # Install Python dependencies
