@@ -3,12 +3,11 @@ boto3
 pymupdf
 pandas
 amazon-textract-textractor==1.7.1
-openpyxl
 inflect
 pypdf2
 pytesseract
-python-pptx
 python-docx
+python-pptx
 pillow
 openpyxl
 pydantic

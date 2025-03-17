@@ -27,10 +27,14 @@ Parameters:
     Description: 'Optional: Lambda memory in MB (min 128 - 10,240 max).'
     Default: 3008
     Type: Number 
+  EC2AmiId:
+    Description: "Ec2 AMI Id to host the bedrock chat agent"
+    Default: 'ami-04b4f1a9cf54c11d0'
+    Type: String
 
-Conditions:
-  S3BucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
-  ChatDataBucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
+# Conditions:
+#   S3BucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
+#   ChatDataBucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
 
 Resources:
   VPC:
@@ -137,15 +141,12 @@ Resources:
         - Key: Name
           Value: ChatHistoryTable
 
-   S3Bucket:
+  S3Bucket:
     Type: 'AWS::S3::Bucket'
-    Condition: !Not [!Condition S3BucketExists]
-    DeletionPolicy: Retain
     Properties:
       BucketName: !Join 
         - '-'
         - - "bedrock-data-bucket"
-          - !Ref 'AWS::StackName'
           - !Ref 'AWS::AccountId'
           - !Ref 'AWS::Region'
       VersioningConfiguration:
@@ -162,13 +163,10 @@ Resources:
 
   ChatDataBucket:
     Type: 'AWS::S3::Bucket'
-    Condition: !Not [!Condition ChatDataBucketExists]
-    DeletionPolicy: Retain
     Properties:
       BucketName: !Join 
         - '-'
         - - "bluebear-chat-data"
-          - !Ref 'AWS::StackName'
           - !Ref 'AWS::AccountId'
           - !Ref 'AWS::Region'
       VersioningConfiguration:
@@ -181,7 +179,7 @@ Resources:
         BlockPublicAcls: true
         BlockPublicPolicy: true
         IgnorePublicAcls: true
-        RestrictPublicBuckets: true
+        RestrictPublicBuckets: true       
 
   SparkOnLambdaRole:
     Type: 'AWS::IAM::Role'
@@ -227,10 +225,10 @@ Resources:
               - s3:GetObject
               - s3:PutObject
             Resource: 
-              - !If [S3BucketExists, !Sub 'arn:aws:s3:::bedrock-data-bucket-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}', !GetAtt S3Bucket.Arn]
-              - !If [S3BucketExists, !Sub 'arn:aws:s3:::bedrock-data-bucket-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}/*', !Sub '${S3Bucket.Arn}/*']
-              - !If [ChatDataBucketExists, !Sub 'arn:aws:s3:::bluebear-chat-data-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}', !GetAtt ChatDataBucket.Arn]
-              - !If [ChatDataBucketExists, !Sub 'arn:aws:s3:::bluebear-chat-data-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}/*', !Sub '${ChatDataBucket.Arn}/*']
+              - !Sub '${S3Bucket.Arn}'
+              - !Sub '${S3Bucket.Arn}/*'
+              - !Sub '${ChatDataBucket.Arn}'
+              - !Sub '${ChatDataBucket.Arn}/*'              
           - Effect: Allow
             Action:
               - dynamodb:PutItem
@@ -295,10 +293,10 @@ Resources:
                   - s3:GetObjectTagging
                   - s3:DeleteObjectTagging
                 Resource: 
-                  - !If [S3BucketExists, !Sub 'arn:aws:s3:::bedrock-data-bucket-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}', !GetAtt S3Bucket.Arn]
-                  - !If [S3BucketExists, !Sub 'arn:aws:s3:::bedrock-data-bucket-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}/*', !Sub '${S3Bucket.Arn}/*']
-                  - !If [ChatDataBucketExists, !Sub 'arn:aws:s3:::bluebear-chat-data-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}', !GetAtt ChatDataBucket.Arn]
-                  - !If [ChatDataBucketExists, !Sub 'arn:aws:s3:::bluebear-chat-data-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}/*', !Sub '${ChatDataBucket.Arn}/*']
+                  - !Sub '${S3Bucket.Arn}'
+                  - !Sub '${S3Bucket.Arn}/*'
+                  - !Sub '${ChatDataBucket.Arn}'
+                  - !Sub '${ChatDataBucket.Arn}/*'       
               - Effect: Allow
                 Action:
                   - s3:ListAllMyBuckets
@@ -319,7 +317,7 @@ Resources:
     Properties:
       InstanceType: !Ref InstanceType
       KeyName: !Ref KeyPair
-      ImageId: ami-0cb91c7de36eed2cb # Ubuntu 20.04 LTS (ensure this is available in your region)
+      ImageId: !Ref EC2AmiId # Ubuntu 20.04 LTS (ensure this is available in your region)
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref SecurityGroup
@@ -336,7 +334,7 @@ Resources:
           apt update && apt upgrade -y
           sudo apt install software-properties-common -y
           sudo add-apt-repository ppa:deadsnakes/ppa
-          sudo apt install libffi-dev libssl-dev python3.11 python3.11-venv python3.11-dev tmux git build-essential -y 
+          sudo apt install libffi-dev libssl-dev python3.11 python3.11-venv python3.11-dev tmux git build-essential python3-pip -y 
           ls -la /usr/bin/python3
           sudo rm /usr/bin/python3
           sudo ln -s python3.11 /usr/bin/python3
@@ -346,15 +344,17 @@ Resources:
 
           # Clone the Git repository into a folder named Bluebear
           echo "Cloning repo ${GitRepo}"
-          git clone ${GitRepo} Bluebear
-          cd Bluebear
+          git clone ${GitRepo} bluebear
+          cd bluebear
 
           # Install Python dependencies
           python3 -m pip install -r req.txt --upgrade --break-system-packages
 
           # Set configurations for Lambda Name and Bucket Name
           sed -i 's/fairstone/${S3Bucket}/g' config.json
-          sed -i 's/soal/${SparkOnLambda}/g' config.json
+          sed -i 's/soalfunction/${SparkOnLambda}/g' config.json
+          sed -i 's/ddbtable/${ChatHistoryTable}/g' config.json
+          sed -i 's/region/${AWS::Region}/g' config.json       
           echo "FINAL CONFIGURATIONS"
           cat config.json
 
@@ -375,25 +375,11 @@ Outputs:
     Value: !Sub http://${EC2Instance.PublicIp}:8501
   S3BucketName:
     Description: Name of the S3 bucket for Bedrock data
-    Value: !If 
-      - S3BucketExists
-      - !Sub 'bedrock-data-bucket-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}'
-      - !Ref S3Bucket
+    Value: !Ref S3Bucket
   ChatDataBucketName:
     Description: Name of the S3 bucket for chat data
-    Value: !If 
-      - ChatDataBucketExists
-      - !Sub 'bluebear-chat-data-${AWS::StackName}-${AWS::AccountId}-${AWS::Region}'
-      - !Ref ChatDataBucket
+    Value: !Ref ChatDataBucket
   ChatHistoryTableName:
     Description: Name of the DynamoDB table for chat history
     Value: !Ref ChatHistoryTable
-  S3BucketWarning:
-    Condition: S3BucketExists
-    Description: Warning about existing S3 bucket
-    Value: "The S3 bucket 'bedrock-data-bucket' already exists. Using existing bucket."
-  ChatDataBucketWarning:
-    Condition: ChatDataBucketExists
-    Description: Warning about existing Chat Data S3 bucket
-    Value: "The S3 bucket 'bluebear-chat-data' already exists. Using existing bucket."
   
