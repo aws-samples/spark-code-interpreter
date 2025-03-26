@@ -188,7 +188,7 @@ Resources:
     Properties:
       BucketName: !Join 
         - '-'
-        - - !Ref Bucket
+        - - !Ref BucketName
           - !Ref 'AWS::AccountId'
           - !Ref 'AWS::Region'
       VersioningConfiguration:
@@ -397,13 +397,6 @@ Resources:
           pip install -U setuptools
           pip install -r req.txt --upgrade --break-system-packages
 
-          # Set configurations for Lambda Name and Bucket Name
-          sed -i 's/fairstone/${S3Bucket}/g' config.json
-          sed -i 's/soalfunction/${SparkOnLambda}/g' config.json
-          sed -i 's/ddbtable/${ChatHistoryTable}/g' config.json
-          sed -i 's/region/${AWS::Region}/g' config.json       
-          echo "FINAL CONFIGURATIONS"
-          cat config.json
 
           # Start the Bluebear Streamlit app in a tmux session
           tmux new -d -s mysession "python3 -m streamlit run bedrock-chat.py"
