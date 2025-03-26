@@ -68,7 +68,7 @@ echo "Done! SparkonLambda Image has been built and pushed to ECR successfully."
 
 # Add this near the top of your deploy.sh script
 MY_IP=$(curl -s https://checkip.amazonaws.com)/32
-
+GIT_BRANCH=`git rev-parse --abbrev-ref HEAD`
 echo "Inititaing deployment of the bedrock application"
 cd ../CloudFormation/
 sam deploy \
@@ -86,5 +86,6 @@ sam deploy \
         InputBucket=${INPUT_BUCKET} \
         InputS3Path=${INPUT_S3_PATH} \
         LambdaFunction=${LAMBDA_FUNCTION} \
-        MyIp=${MY_IP}
+        MyIp=${MY_IP} \
+        GitBranch=${GIT_BRANCH}
 

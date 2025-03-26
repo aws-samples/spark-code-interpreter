@@ -93,13 +93,30 @@ The goal is to limit the potential impact of generated code execution.
 To customize the behavior for the conversational chatbot follow [these](https://github.com/aws-samples/bedrock-claude-chatbot/tree/main?tab=readme-ov-file#configuration) instructions.
 
 
+## Configuration
+To customize the chatbot’s behavior, follow these configuration instructions:
+
+* Modify config.json to specify your S3 bucket, Lambda function, and Bedrock region.
+
+* Ensure the correct AWS region is set to avoid connectivity issues.
+
+* Only update the necessary parameters, as other settings remain static.
+
+
+```json
+{
+  "s3_bucket": "your-s3-bucket",
+  "lambda_function": "your-lambda-function",
+  "bedrock_region": "us-east-1"
+}
+```
 ## Deploy and run Streamlit App on AWS EC2 (I tested this on the Ubuntu Image)
 
-## 1 Create an EC2 Instance  
+## 1. Create an EC2 Instance  
 
 [➡️ AWS Guide: Create an EC2 Instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EC2_GetStarted.html)  
 
-## 2 Configure Security Group (Expose Required Ports)  
+## 2. Configure Security Group (Expose Required Ports)  
 
 Since **Streamlit** runs on **TCP port 8501**, you must allow inbound traffic.  
 
@@ -109,13 +126,13 @@ Since **Streamlit** runs on **TCP port 8501**, you must allow inbound traffic.
 3. Click **Edit inbound rules** and add the following
  <img src="images/sg-rules.PNG" width="600"/>
  
-## 3 Attach the Instance Profile Role  
+## 3. Attach the Instance Profile Role  
 
 Ensure the **EC2 instance profile role** has the required **IAM permissions** to access AWS services used in this application.  
 
 [➡️ AWS Guide: Assign an Instance Profile Role](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html)  
 
-## 4 Connect to Your EC2 Instance  
+## 4. Connect to Your EC2 Instance  
 
 [➡️ AWS Guide: Connect to Your EC2 Instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstances.html)  
 
@@ -130,30 +147,30 @@ ssh -i your-key.pem ubuntu@your-ec2-public-ip
 sudo apt update
 sudo apt upgrade
 ```
-## 6 Clone this git repo
+## 6. Clone this git repo
 ```
 git clone [github_link]
 ```
 
-## 7 Install Python3 and Pip
+## 7. Install Python3 and Pip
 
 If Python3 and Pip are not already installed, run the following command:
 
 ```sh
 sudo apt install python3 python3-pip -y
 ```
-## 8 Install Tesseract-OCR for PDF and Image Processing
+## 8. Install Tesseract-OCR for PDF and Image Processing
 
 If you decide to use Python libraries for PDF and image processing, you need to install **Tesseract-OCR**. Run the appropriate command based on your operating system:
 
-### 9 For CentOS or Amazon Linux:
+### 9. For CentOS or Amazon Linux:
 
 ```sh
 sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
 sudo yum -y update
 sudo yum install -y tesseract
 ```
-## 10 Install Dependencies and Run the Streamlit App
+## 10. Install Dependencies and Run the Streamlit App
 
 ### Install Dependencies
 
@@ -162,7 +179,7 @@ Run the following command to install the required dependencies:
 ```sh
 sudo pip install -r req.txt --upgrade
 ```
-## 11 Run the Streamlit App in a `tmux` Session
+## 11. Run the Streamlit App in a `tmux` Session
 ### Start a `tmux` Session and Launch the Streamlit App
 * tmux allows your Streamlit app to keep running even after you disconnect from the SSH session, ensuring uninterrupted execution.
 * Run command

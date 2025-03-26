@@ -161,7 +161,7 @@ Resources:
     Properties:
       TableName: !Join 
         - '-'
-        - - "chat-history"
+        - - !Ref DynamoDBTable
           - !Ref 'AWS::StackName'
           - !Ref 'AWS::AccountId'
           - !Ref 'AWS::Region'
@@ -188,7 +188,7 @@ Resources:
     Properties:
       BucketName: !Join 
         - '-'
-        - - "bedrock-data-bucket"
+        - - !Ref Bucket
           - !Ref 'AWS::AccountId'
           - !Ref 'AWS::Region'
       VersioningConfiguration:
@@ -208,7 +208,7 @@ Resources:
     Properties:
       BucketName: !Join 
         - '-'
-        - - "bluebear-chat-data"
+        - - !Ref InputBucket
           - !Ref 'AWS::AccountId'
           - !Ref 'AWS::Region'
       VersioningConfiguration:
@@ -280,6 +280,7 @@ Resources:
             Resource: !GetAtt ChatHistoryTable.Arn
       Roles:
         - !Ref SparkOnLambdaRole
+ 
   SparkOnLambda:
     Type: 'AWS::Serverless::Function'
     Properties:
