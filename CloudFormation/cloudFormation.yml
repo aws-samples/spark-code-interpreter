@@ -29,8 +29,8 @@ Parameters:
     Type: Number 
   EC2AmiId:
     Description: "Ec2 AMI Id to host the bedrock chat agent"
-    Default: 'ami-04b4f1a9cf54c11d0'
-    Type: String
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
   GitBranch:
     Description: "Git branch for Interpreter"
     Default: 'feature/sloanintegration'
@@ -374,19 +374,21 @@ Resources:
           set -e
 
           # Update and upgrade system
-          apt update && apt upgrade -y
-          sudo apt install software-properties-common -y
-          sudo add-apt-repository ppa:deadsnakes/ppa
-          sudo apt install libffi-dev libssl-dev python3.11 python3.11-venv python3.11-dev tmux git build-essential python3-pip -y 
+          sudo dnf update && sudo dnf upgrade -y
+          sudo yum groupinstall "Development Tools" -y
+          sudo yum install libffi-devel bzip2-devel -y
+          # sudo yum uninstall openssl-devel
+          # sudo yum install openssl11-devel
+          sudo yum install python-pip -y
+          sudo yum install tmux git -y 
+          # sudo yum install libffi-dev libssl-dev tmux git build-essential -y 
           # textract installtion pre-requisites
           # https://textract.readthedocs.io/en/stable/installation.html#ubuntu-debian
-          sudo apt install libxml2-dev libxslt1-dev antiword unrtf poppler-utils tesseract-ocr flac ffmpeg lame libmad0 libsox-fmt-mp3 sox libjpeg-dev swig -y
-          ls -la /usr/bin/python3
-          sudo rm /usr/bin/python3
-          sudo ln -s python3.11 /usr/bin/python3
+          # sudo yum install libxml2-dev libxslt1-dev antiword unrtf poppler-utils tesseract-ocr flac ffmpeg lame libmad0 libsox-fmt-mp3 sox libjpeg-dev swig -y
+
 
           # Optionally install Tesseract-OCR; if it fails, log the error and continue.
-          apt install -y tesseract-ocr-all || echo "Optional dependency tesseract-ocr-all installation failed, continuing..."
+          # yum install -y tesseract-ocr-all || echo "Optional dependency tesseract-ocr-all installation failed, continuing..."
 
           # Clone the Git repository into a folder named Bluebear
           echo "Cloning repo ${GitRepo}"
@@ -395,7 +397,8 @@ Resources:
 
           # Install Python dependencies
           pip install -U setuptools
-          pip install -r req.txt --upgrade --break-system-packages
+          pip install python-dateutil==2.8.2
+          pip install -r req.txt
 
 
           # Start the Bluebear Streamlit app in a tmux session
