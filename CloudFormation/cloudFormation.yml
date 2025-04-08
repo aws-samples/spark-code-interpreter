@@ -159,12 +159,7 @@ Resources:
   ChatHistoryTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Join 
-        - '-'
-        - - !Ref DynamoDBTable
-          - !Ref 'AWS::StackName'
-          - !Ref 'AWS::AccountId'
-          - !Ref 'AWS::Region'
+      TableName: !Ref DynamoDBTable
       BillingMode: PAY_PER_REQUEST
       AttributeDefinitions:
         - AttributeName: UserId
@@ -186,11 +181,7 @@ Resources:
   S3Bucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: !Join 
-        - '-'
-        - - !Ref BucketName
-          - !Ref 'AWS::AccountId'
-          - !Ref 'AWS::Region'
+      BucketName: !Ref BucketName
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
@@ -394,10 +385,16 @@ Resources:
           cd bluebear
 
           # Install Python dependencies
-          # sudo yum remove python3-requests
-          sudo pip install python-dateutil
-          sudo pip install -r req.txt
-          export AWS_DEFAULT_REGION=${AWS::Region}
+          mkdir .venv
+          sudo chmod 777 .venv
+          python3 -m venv .venv
+          cd .venv/bin
+          source activate
+          cd ../..
+          pip install -r req.txt
+          aws configure set region ${AWS::Region}
+          sed -i -e "s/{{ACCOUNT_ID}}/${AWS::AccountId}/g" config.json
+          sed -i -e "s/{{REGION}}/${AWS::Region}/g" config.json
 
 
           # Start the Bluebear Streamlit app in a tmux session
