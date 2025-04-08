@@ -396,9 +396,10 @@ Resources:
           cd bluebear
 
           # Install Python dependencies
-          pip install -U setuptools
+          # pip install -U setuptools
           pip install python-dateutil==2.8.2
           pip install -r req.txt
+          aws configure set region ${AWS::Region}
 
 
           # Start the Bluebear Streamlit app in a tmux session

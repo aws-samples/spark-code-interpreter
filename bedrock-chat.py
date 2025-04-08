@@ -45,7 +45,9 @@ import concurrent.futures
 from functools import partial
 import textract
 import random
-import logger
+import logging
+
+logger = logging.getLogger()
 
 config = Config(
     read_timeout=600, # Read timeout parameter
