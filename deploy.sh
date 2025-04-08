@@ -20,12 +20,12 @@ ECR_REPOSITORY_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_
 
 # Using ["key-name"] syntax for keys with hyphens
 DYNAMODB_TABLE=$(jq -r '.DynamodbTable' config.json)
-DYNAMODB_TABLE=`echo $DYNAMODB_TABLE | sed 's/{{ACCOUNT_ID}}/${AWS_ACCOUNT_ID}/g'`
+DYNAMODB_TABLE=`echo $DYNAMODB_TABLE | sed "s/{{ACCOUNT_ID}}/${AWS_ACCOUNT_ID}/g"`
 USER_ID=$(jq -r '.UserId' config.json)
 BUCKET_NAME=$(jq -r '.Bucket_Name' config.json)
-BUCKET_NAME=`echo $BUCKET_NAME | sed 's/{{ACCOUNT_ID}}/${AWS_ACCOUNT_ID}/g'`
+BUCKET_NAME=`echo $BUCKET_NAME | sed "s/{{ACCOUNT_ID}}/${AWS_ACCOUNT_ID}/g"`
 INPUT_BUCKET=$(jq -r '.input_bucket' config.json)
-INPUT_BUCKET=`echo $INPUT_BUCKET | sed 's/{{ACCOUNT_ID}}/${AWS_ACCOUNT_ID}/g'`
+INPUT_BUCKET=`echo $INPUT_BUCKET | sed "s/{{ACCOUNT_ID}}/${AWS_ACCOUNT_ID}/g"`
 INPUT_S3_PATH=$(jq -r '.input_s3_path' config.json)
 LAMBDA_FUNCTION=$(jq -r '.["lambda-function"]' config.json)
 
