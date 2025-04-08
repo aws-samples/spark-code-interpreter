@@ -394,8 +394,9 @@ Resources:
           cd bluebear
 
           # Install Python dependencies
-          pip install python-dateutil==2.8.2
-          pip install -r req.txt
+          # sudo yum remove python3-requests
+          sudo pip install python-dateutil==2.8.2
+          sudo pip install -r req.txt
           aws configure set region ${AWS::Region}
 
 
