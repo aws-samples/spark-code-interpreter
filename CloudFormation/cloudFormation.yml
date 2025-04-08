@@ -197,11 +197,7 @@ Resources:
   ChatDataBucket:
     Type: 'AWS::S3::Bucket'
     Properties:
-      BucketName: !Join 
-        - '-'
-        - - !Ref InputBucket
-          - !Ref 'AWS::AccountId'
-          - !Ref 'AWS::Region'
+      BucketName: !Ref InputBucket
       VersioningConfiguration:
         Status: Enabled
       BucketEncryption:
