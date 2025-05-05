@@ -112,6 +112,14 @@ To customize the chatbot’s behavior, follow these configuration instructions:
 ```
 ## Deploy and run Streamlit App on AWS EC2 (I tested this on the Ubuntu Image)
 
+
+Option 1
+For one click deployment clone the repository and run the deploy.sh. 
+
+```sh deploy.sh```
+
+Optino 2 
+
 ## 1. Create an EC2 Instance  
 
 [➡️ AWS Guide: Create an EC2 Instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EC2_GetStarted.html)  
