@@ -89,7 +89,7 @@ Enabling the **Advanced Analytics Feature** allows the LLM to generate and execu
 
 The goal is to limit the potential impact of generated code execution.
 
-##Configuration
+## Configuration
 To customize the behavior for the conversational chatbot follow [these](https://github.com/aws-samples/bedrock-claude-chatbot/tree/main?tab=readme-ov-file#configuration) instructions.
 
 
@@ -113,12 +113,19 @@ To customize the chatbot’s behavior, follow these configuration instructions:
 ## Deploy and run Streamlit App on AWS EC2 (I tested this on the Ubuntu Image)
 
 
-Option 1
-For one click deployment clone the repository and run the deploy.sh. 
+## Option 1
+For one click deployment clone the repository, update the config.json files and run the deploy.sh. This  script automates building and pushing a Docker image to AWS ECR using configuration values from a config JSON file, then deploys an AWS SAM application with those parameters. Finally, it deploys a Spark code interpreter and Chatbot CloudFormation stack with all required parameters, streamlining the CI/CD process for a Spark-on-Lambda application. Config.json is the driver for deploy.sh. Please update the config.json before deploying the script.
+**Note** : This feature is still being tested , so please provide us a feedback
+
+###  Clone this git repo
+```
+git clone [github_link]
+```
+###  Run the deploy.sh 
 
 ```sh deploy.sh```
 
-Optino 2 
+## Option 2 
 
 ## 1. Create an EC2 Instance  
 
