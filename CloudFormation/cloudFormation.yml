@@ -1,4 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
 Description: |
   CloudFormation template to set up an EC2 instance with the Bluebear Streamlit application. This template creates a VPC with a public subnet (including an Internet Gateway and route) so that the instance gets a public IP address.
 
@@ -7,13 +8,59 @@ Parameters:
     Description: EC2 instance type
     Type: String
     Default: t3.micro
-  KeyPair:
-    Description: The name of an existing EC2 KeyPair to enable SSH access.
-    Type: AWS::EC2::KeyPair::KeyName
+#  KeyPair:
+#    Description: The name of an existing EC2 KeyPair to enable SSH access.
+#    Type: AWS::EC2::KeyPair::KeyName
   GitRepo:
     Description: Git repository URL to clone.
     Type: String
-    Default: '[github_link]'
+    Default: 'https://github.com/aws-samples/spark-code-interpreter.git'
+  ImageUri:
+    Description: 'ECR URI for the  SparkOnLmabda image'
+    Type: String
+    Default: ''
+  LambdaTimeout:
+    Description: 'Optional: Maximum Lambda invocation runtime in seconds. (min 1 - 900 max)'
+    Default: 900
+    Type: Number
+  LambdaMemory:
+    Description: 'Optional: Lambda memory in MB (min 128 - 10,240 max).'
+    Default: 3008
+    Type: Number 
+  EC2AmiId:
+    Description: "Ec2 AMI Id to host the bedrock chat agent"
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
+  GitBranch:
+    Description: "Git branch for Interpreter"
+    Default: 'feature/sloanintegration'
+    Type: String
+  DynamoDBTable:
+    Type: String
+    Description: DynamoDB table name
+  UserId:
+    Type: String
+    Description: User ID
+  BucketName:
+    Type: String
+    Description: Main bucket name
+  InputBucket:
+    Type: String
+    Description: Input bucket name
+  InputS3Path:
+    Type: String
+    Description: Input S3 path
+  LambdaFunction:
+    Type: String
+    Description: Lambda function name
+  MyIp:
+    Type: String
+    Description: Your IP address in CIDR notation (e.g., 1.2.3.4/32)
+    AllowedPattern: ^([0-9]{1,3}\.){3}[0-9]{1,3}/32$
+
+# Conditions:
+#   S3BucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
+#   ChatDataBucketExists: !Not [!Equals [!Ref 'AWS::NoValue', '']]
 
 Resources:
   VPC:
@@ -83,11 +130,156 @@ Resources:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref MyIp
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref MyIp          
         - IpProtocol: tcp
           FromPort: 8501
           ToPort: 8501
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref MyIp
+        # SSH access from EC2 Instance Connect (adjust CIDR based on your region)
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 3.16.146.0/29    # US East (Ohio)
+          Description: EC2 Instance Connect - US East (Ohio)
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 18.206.107.24/29  # US East (N. Virginia)
+          Description: EC2 Instance Connect - US East (N. Virginia)
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 3.120.181.40/29   # Europe (Frankfurt)
+          Description: EC2 Instance Connect - Europe (Frankfurt)
+
+  ChatHistoryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref DynamoDBTable
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: UserId
+          AttributeType: S
+        - AttributeName: SessionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: UserId
+          KeyType: HASH
+        - AttributeName: SessionId
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: true
+      Tags:
+        - Key: Name
+          Value: ChatHistoryTable
+
+  S3Bucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref BucketName
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  ChatDataBucket:
+    Type: 'AWS::S3::Bucket'
+    Properties:
+      BucketName: !Ref InputBucket
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true       
+
+  SparkOnLambdaRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Description: 'Role used by the lambda running spark'
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'lambda.amazonaws.com'
+            Action: 'sts:AssumeRole' 
+
+  SparkOnLambdaPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: !Sub 'SparkOnLmandaDefaulPolicy-${AWS::StackName}'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - ecr:GetAuthorizationToken
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+            Resource:
+              Fn::Sub:
+                - "arn:aws:ecr:${Region}:${Account}:repository/${RepositoryName}"
+                - Region: !Select [3, !Split [".", !Ref ImageUri ]]
+                  Account: !Select [0, !Split [".", !Ref ImageUri ]]
+                  RepositoryName: !Select [1, !Split ["/", !Select [ 0, !Split [":", !Select [5, !Split [".", !Ref ImageUri ]]]]]]
+          - Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:GetObject
+              - s3:PutObject
+            Resource: 
+              - !Sub '${S3Bucket.Arn}'
+              - !Sub '${S3Bucket.Arn}/*'
+              - !Sub '${ChatDataBucket.Arn}'
+              - !Sub '${ChatDataBucket.Arn}/*'              
+          - Effect: Allow
+            Action:
+              - dynamodb:PutItem
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+              - dynamodb:Query
+            Resource: !GetAtt ChatHistoryTable.Arn
+      Roles:
+        - !Ref SparkOnLambdaRole
+ 
+  SparkOnLambda:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      PackageType: Image
+      FunctionName: !Sub 'sparkOnLambda-${AWS::StackName}'
+      ImageUri: !Ref ImageUri
+      ImageConfig:
+        Command: ["/var/task/sparkLambdaHandler.lambda_handler"]
+      Description: "Lambda to run spark containers"
+      Timeout: !Ref LambdaTimeout
+      MemorySize: !Ref LambdaMemory
+      Role: !GetAtt SparkOnLambdaRole.Arn       
 
   InstanceRole:
     Type: AWS::IAM::Role
@@ -108,9 +300,41 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - s3:*
                   - logs:*
                 Resource: '*'
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:BatchGetItem
+                Resource: !GetAtt ChatHistoryTable.Arn
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:PutObjectTagging
+                  - s3:GetObjectTagging
+                  - s3:DeleteObjectTagging
+                Resource: 
+                  - !Sub '${S3Bucket.Arn}'
+                  - !Sub '${S3Bucket.Arn}/*'
+                  - !Sub '${ChatDataBucket.Arn}'
+                  - !Sub '${ChatDataBucket.Arn}/*'       
+              - Effect: Allow
+                Action:
+                  - s3:ListAllMyBuckets
+                Resource: 'arn:aws:s3:::*'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt SparkOnLambda.Arn
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -122,8 +346,8 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
-      KeyName: !Ref KeyPair
-      ImageId: ami-04b4f1a9cf54c11d0 # Ubuntu 20.04 LTS (ensure this is available in your region)
+      #KeyName: !Ref KeyPair
+      ImageId: !Ref EC2AmiId # Ubuntu 20.04 LTS (ensure this is available in your region)
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref SecurityGroup
@@ -137,23 +361,40 @@ Resources:
           set -e
 
           # Update and upgrade system
-          apt update && apt upgrade -y
+          sudo dnf update && sudo dnf upgrade -y
+          sudo yum groupinstall "Development Tools" -y
+          sudo yum install libffi-devel bzip2-devel -y
+          sudo yum install python-pip -y
+          sudo yum install tmux git -y 
+          # sudo yum install libffi-dev libssl-dev tmux git build-essential -y 
+          # textract installtion pre-requisites
+          # https://textract.readthedocs.io/en/stable/installation.html#ubuntu-debian
+          # sudo yum install libxml2-dev libxslt1-dev antiword unrtf poppler-utils tesseract-ocr flac ffmpeg lame libmad0 libsox-fmt-mp3 sox libjpeg-dev swig -y
 
-          # Install necessary dependencies: Python, tmux, and Git
-          apt install -y python3 python3-pip tmux git
 
           # Optionally install Tesseract-OCR; if it fails, log the error and continue.
-          apt install -y tesseract-ocr-all || echo "Optional dependency tesseract-ocr-all installation failed, continuing..."
+          # yum install -y tesseract-ocr-all || echo "Optional dependency tesseract-ocr-all installation failed, continuing..."
 
           # Clone the Git repository into a folder named Bluebear
-          git clone ${GitRepo} Bluebear
-          cd Bluebear
+          echo "Cloning repo ${GitRepo}"
+          git clone -b ${GitBranch} ${GitRepo} bluebear
+          cd bluebear
 
           # Install Python dependencies
-          pip3 install -r req.txt --upgrade
+          mkdir .venv
+          sudo chmod 777 .venv
+          python3 -m venv .venv
+          cd .venv/bin
+          source activate
+          cd ../..
+          pip install -r req.txt
+          aws configure set region ${AWS::Region}
+          sed -i -e "s/{{ACCOUNT_ID}}/${AWS::AccountId}/g" config.json
+          sed -i -e "s/{{REGION}}/${AWS::Region}/g" config.json
+
 
           # Start the Bluebear Streamlit app in a tmux session
-          tmux new -d -s mysession "python3 -m streamlit run bluebear.py"
+          tmux new -d -s mysession "python3 -m streamlit run bedrock-chat.py"
 
           echo "Setup complete. Use 'tmux attach -t mysession' to view the session."
 
@@ -162,9 +403,18 @@ Outputs:
     Description: Public IP of the EC2 instance
     Value: !GetAtt EC2Instance.PublicIp
   SSHCommand:
-    Description: SSH command to connect to the instance (replace 'your-key.pem' with
-      your private key file)
+    Description: SSH command to connect to the instance (replace 'your-key.pem' with your private key file)
     Value: !Sub ssh -i your-key.pem ubuntu@${EC2Instance.PublicIp}
   StreamlitURL:
     Description: URL to access the Bluebear Streamlit app
     Value: !Sub http://${EC2Instance.PublicIp}:8501
+  S3BucketName:
+    Description: Name of the S3 bucket for Bedrock data
+    Value: !Ref S3Bucket
+  ChatDataBucketName:
+    Description: Name of the S3 bucket for chat data
+    Value: !Ref ChatDataBucket
+  ChatHistoryTableName:
+    Description: Name of the DynamoDB table for chat history
+    Value: !Ref ChatHistoryTable
+  

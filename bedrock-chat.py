@@ -1,3 +1,15 @@
+"""
+AWS Bedrock Chat Application
+
+This module implements a chat interface using AWS Bedrock and various AWS services.
+It handles document processing, chat history management, and multiple file format support.
+
+Dependencies:
+    - AWS SDK (boto3)
+    - Streamlit
+    - Various document processing libraries
+"""
+
 import streamlit as st
 import boto3
 from botocore.config import Config
@@ -33,6 +45,9 @@ import concurrent.futures
 from functools import partial
 import textract
 import random
+import logging
+
+logger = logging.getLogger()
 
 config = Config(
     read_timeout=600, # Read timeout parameter
@@ -49,11 +64,13 @@ with open('config.json','r',encoding='utf-8') as f:
 with open('pricing.json','r',encoding='utf-8') as f:
     pricing_file = json.load(f)
 
+# Configuration constants
 S3 = boto3.client('s3')
 DYNAMODB  = boto3.resource('dynamodb')
 COGNITO = boto3.client('cognito-idp')
 LOCAL_CHAT_FILE_NAME = "chat-history.json"
 DYNAMODB_TABLE=config_file["DynamodbTable"]
+DYNAMODB_FLG=config_file["useDynamoDB"]
 BUCKET=config_file["Bucket_Name"]
 OUTPUT_TOKEN=config_file["max-output-token"]
 S3_DOC_CACHE_PATH=config_file["document-upload-cache-s3-path"]
@@ -779,12 +796,13 @@ def _invoke_bedrock_with_retries(params,current_chat, chat_template, question, m
                 raise
                 
 
-def get_session_ids_by_user(table_name, user_id):
+def get_session_ids_by_user(user_id):
     """
     Get Session Ids and corresponding top message for a user to populate the chat history drop down on the front end
     """
-    if DYNAMODB_TABLE:
-        table = DYNAMODB.Table(table_name)
+    
+    if DYNAMODB_FLG:
+        table = DYNAMODB.Table(DYNAMODB_TABLE)
         message_list={}
         session_ids = []
         args = {
@@ -799,7 +817,7 @@ def get_session_ids_by_user(table_name, user_id):
 
         for session_id in session_ids:
             try:
-                message_list[session_id]=DYNAMODB.Table(table_name).get_item(Key={"UserId": user_id, "SessionId":session_id})['Item']['messages'][0]['user']
+                message_list[session_id]=DYNAMODB.Table(DYNAMODB_TABLE).get_item(Key={"UserId": user_id, "SessionId":session_id})['Item']['messages'][0]['user']
             except Exception as e:
                 print(e)
                 pass
@@ -1047,7 +1065,7 @@ def get_key_from_value(dictionary, value):
     return next((key for key, val in dictionary.items() if val == value), None)
     
 def chat_bedrock_(params):
-    st.title('Chatty AI Assitant 🙂')
+    #st.title('BigData Analysis AI Assitant 🙂')
     params['chat_histories']=[]   
     if params["session_id"].strip():
         st.session_state.messages, params['chat_histories']=get_chat_historie_for_streamlit(params)
@@ -1098,38 +1116,177 @@ def chat_bedrock_(params):
         st.rerun()
         
 def app_sidebar():
+    """
+    Creates and manages the Streamlit sidebar interface for the chat application.
+    
+    This function handles:
+    1. Cost display
+    2. Model selection
+    3. Chat session management
+    4. Tool selection
+    5. File upload and S3 bucket integration
+    
+    Returns:
+        dict: Parameters dictionary containing all necessary information for the chat session
+        
+    State Management:
+        - Uses st.session_state to maintain session information
+        - Tracks chat sessions and their history
+        - Manages user session IDs and timestamps
+    """
     with st.sidebar:   
-        st.metric(label="Bedrock Session Cost", value=f"${round(st.session_state['cost'],2)}") 
+        # Display current session cost
+        st.metric(
+            label="Bedrock Session Cost",
+            value=f"${round(st.session_state['cost'],2)}",
+            help="Total cost of the current Bedrock session"
+        )
         st.write("-----")
-        button=st.button("New Chat", type ="primary")
-        models=[ 'claude-3-5-sonnet','claude-3-5-haiku','claude-3-sonnet','claude-3-haiku','claude-instant-v1','claude-v2:1', 'claude-v2']
-        model=st.selectbox('**Model**', models)
-        params={"model":model} 
-        user_sess_id=get_session_ids_by_user(DYNAMODB_TABLE, st.session_state['userid'])
-        float_keys = {float(key): value for key, value in user_sess_id.items()}
-        sorted_messages = sorted(float_keys.items(), reverse=True)      
-        sorted_messages.insert(0, (float(st.session_state['user_sess']),"New Chat"))        
-        if button:
-            st.session_state['user_sess'] = str(time.time())
-            sorted_messages.insert(0, (float(st.session_state['user_sess']),"New Chat"))      
-        st.session_state['chat_session_list'] = dict(sorted_messages)
-        chat_items=st.selectbox("**Chat Sessions**",st.session_state['chat_session_list'].values(),key="chat_sessions")
-        session_id=get_key_from_value(st.session_state['chat_session_list'], chat_items)   
-        tools=st.multiselect("**Tools**",["Advanced Data Analytics"],key="function_collen",default=None)
-        bucket_items=list_csv_xlsx_in_s3_folder(INPUT_BUCKET, INPUT_S3_PATH)
-        bucket_objects=st.multiselect("**Files**",bucket_items,key="objector",default=None)
-        file = st.file_uploader('Upload a document', accept_multiple_files=True, help="pdf,csv,txt,png,jpg,xlsx,json,py doc format supported") 
-        if file and LOAD_DOC_IN_ALL_CHAT_CONVO:
-            st.warning('You have set **load-doc-in-chat-history** to true. For better performance, remove uploaded file(s) (by clicking **X**) **AFTER** first query on uploaded files. See the README for more info', icon="⚠️")
-        params={"model":model, "session_id":str(session_id), "chat_item":chat_items, "upload_doc":file, "tools":tools, 's3_objects':bucket_objects }    
-        st.session_state['count']=1
-        return params
 
+        # New chat button
+        button = st.button(
+            "New Chat",
+            type="primary",
+            help="Start a new chat session"
+        )
+
+        # Model selection
+        models = [
+            'claude-3-5-sonnet',
+            'claude-3-5-haiku',
+            'claude-3-sonnet',
+            'claude-3-haiku',
+            'claude-instant-v1',
+            'claude-v2:1',
+            'claude-v2'
+        ]
+        model = st.selectbox(
+            '**Model**',
+            models,
+            help="Select the AI model to use for chat"
+        )
+        
+        # Initialize basic parameters
+        params = {"model": model}
+        
+        try:
+            # Retrieve user's chat session history
+            user_sess_id = get_session_ids_by_user(st.session_state['userid'])
+            
+            # Handle new users or empty session cases
+            if not user_sess_id:
+                # Initialize new session for first-time users
+                current_time = str(time.time())
+                sorted_messages = [(float(current_time), "New Chat")]
+                st.session_state['user_sess'] = current_time
+                
+            else:
+                # Process existing chat sessions
+                try:
+                    # Convert session IDs to float for proper sorting
+                    float_keys = {float(key): value for key, value in user_sess_id.items()}
+                    # Sort messages in reverse chronological order
+                    sorted_messages = sorted(float_keys.items(), reverse=True)
+                    # Add current session to the list
+                    sorted_messages.insert(0, (float(st.session_state['user_sess']), "New Chat"))
+                    
+                except ValueError as e:
+                    # Handle invalid session ID format
+                    logger.error(f"Error converting session IDs to float: {e}")
+                    current_time = str(time.time())
+                    sorted_messages = [(float(current_time), "New Chat")]
+                    st.session_state['user_sess'] = current_time
+
+            # Handle new chat button click
+            if button:
+                # Generate new session timestamp
+                st.session_state['user_sess'] = str(time.time())
+                # Add new session to the beginning of the list
+                sorted_messages.insert(0, (float(st.session_state['user_sess']), "New Chat"))
+
+            # Update session state with sorted chat list
+            st.session_state['chat_session_list'] = dict(sorted_messages)
+            
+            # Create dropdown for chat session selection
+            chat_items = st.selectbox(
+                "**Chat Sessions**",
+                st.session_state['chat_session_list'].values(),
+                key="chat_sessions",
+                help="Select a chat session to continue"
+            )
+            
+            # Get session ID for selected chat
+            session_id = get_key_from_value(st.session_state['chat_session_list'], chat_items)
+
+            # Tool selection interface
+            tools = st.multiselect(
+                "**Tools**",
+                ["Advanced Data Analytics"],
+                key="function_collen",
+                default=None,
+                help="Select additional tools to enhance chat capabilities"
+            )
+            # Tool selection interface
+            engine = st.multiselect(
+                "**Spark Engine**",
+                ["Single Node-Spark on AWS Lambda","Amazon EMR Serverless","other"],
+                key="Spark engine",
+                default=None,
+                help="Select spark engine"
+            )
+
+            # S3 bucket file listing and selection
+            bucket_items = list_csv_xlsx_in_s3_folder(INPUT_BUCKET, INPUT_S3_PATH)
+            bucket_objects = st.multiselect(
+                "**Files**",
+                bucket_items,
+                key="objector",
+                default=None,
+                help="Select files from S3 bucket to include in chat"
+            )
+
+            # File upload interface
+            file = st.file_uploader(
+                'Upload a document',
+                accept_multiple_files=True,
+                help="Supported formats: pdf, csv, txt, png, jpg, xlsx, json, py"
+            )
+
+            # Warning for document loading configuration
+            if file and LOAD_DOC_IN_ALL_CHAT_CONVO:
+                st.warning(
+                    'You have set **load-doc-in-chat-history** to true. For better performance, '
+                    'remove uploaded file(s) (by clicking **X**) **AFTER** first query on uploaded files. '
+                    'See the README for more info',
+                    icon="⚠️"
+                )
+
+            # Update parameters with all session information
+            params.update({
+                "model": model,
+                "session_id": str(session_id),
+                "chat_item": chat_items,
+                "upload_doc": file,
+                "tools": tools,
+                's3_objects': bucket_objects
+            })
+
+            # Reset conversation counter
+            st.session_state['count'] = 1
+            
+            return params
+
+        except Exception as e:
+            # Handle any unexpected errors
+            logger.error(f"Error in app_sidebar: {str(e)}")
+            st.error(f"An error occurred while setting up the sidebar: {str(e)}")
+            # Return basic parameters to prevent application crash
+            return {"model": model, "session_id": str(time.time()), "chat_item": "New Chat"}
 
 def main():
     # Add an application or chatbot header here
     st.title("BlueBear Agentic AI for Business uers ")
-    st.header("Conversational AI Assistant Powered by Amazon Bedrock agent")
+    st.markdown("<p class='small-header'>Conversational AI Assistant Powered by Amazon Bedrock agent</p>", unsafe_allow_html=True)
     params=app_sidebar()
     chat_bedrock_(params)
 
