@@ -1,5 +1,3 @@
-# This dockefile is  part of an another aws-samples called spark on AWS Lambda
-
 # Use AWS Lambda Python 3.8 image as base
 FROM public.ecr.aws/lambda/python:3.8
 
@@ -8,28 +6,34 @@ ARG HADOOP_VERSION=3.2.4
 ARG AWS_SDK_VERSION=1.11.901
 ARG PYSPARK_VERSION=3.3.0
 
-#FRAMEWORK will passed during the Docker build. For Apache Iceberg in somecase downgrading PYSPARK_VERSION to 3.2.0 will be good
 ARG FRAMEWORK
 ARG DELTA_FRAMEWORK_VERSION=2.2.0
 ARG HUDI_FRAMEWORK_VERSION=0.12.2
-
-
 ARG ICEBERG_FRAMEWORK_VERSION=3.3_2.12
 ARG ICEBERG_FRAMEWORK_SUB_VERSION=1.0.0
-
-
 ARG DEEQU_FRAMEWORK_VERSION=2.0.3-spark-3.3
 
+# AWS credentials with default values
+ARG AWS_ACCESS_KEY_ID=""
+ARG AWS_SECRET_ACCESS_KEY=""
+ARG AWS_SESSION_TOKEN=""
+ARG AWS_REGION="us-east-1"
 
 # Perform system updates and install dependencies
-RUN yum update -y && \    
+RUN yum update -y && \
+    yum -y update zlib && \
     yum -y install wget && \
     yum -y install yum-plugin-versionlock && \
     yum -y versionlock add java-1.8.0-openjdk-1.8.0.362.b08-0.amzn2.0.1.x86_64 && \
     yum -y install java-1.8.0-openjdk && \
+    yum -y install unzip && \
     pip install --upgrade pip && \
-    pip install pyspark==$PYSPARK_VERSION && \
+    pip install pyspark==$PYSPARK_VERSION boto3 && \
     yum clean all
+
+# Copy and install Python requirements
+COPY requirements.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install -r ${LAMBDA_TASK_ROOT}/requirements.txt
 
 # Install pydeequ if FRAMEWORK is DEEQU
 #RUN if [ "$FRAMEWORK" = "DEEQU" ] ; then \
@@ -40,12 +44,12 @@ RUN yum update -y && \
 #        echo FRAMEWORK is ${FRAMEWORK} ; \
 #    fi
 
-#RUN echo "$FRAMEWORK" | grep -q "DEEQU" && \
-#     pip install --no-deps pydeequ && \
-#     pip install pandas && \
-#     yum clean all && \
-#     echo "DEEQU found in FRAMEWORK" || \
-#     echo "DEEQU not found in FRAMEWORK"
+RUN echo "$FRAMEWORK" | grep -q "DEEQU" && \
+    pip install --no-deps pydeequ && \
+    pip install pandas && \
+    yum clean all && \
+    echo "DEEQU found in FRAMEWORK" || \
+    echo "DEEQU not found in FRAMEWORK"
 
 
 # Set environment variables for PySpark
@@ -57,8 +61,8 @@ ENV PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j-0.10.9-src.zip:/ho
 ENV PATH=$SPARK_HOME/python:$PATH
 
 COPY download_jars.sh /tmp
-#COPY libs/glue_functions /home/glue_functions
-#RUN chmod -R 755 /home/glue_functions
+# COPY libs/glue_functions /home/glue_functions
+# RUN chmod -R 755 /home/glue_functions
 
 RUN chmod +x /tmp/download_jars.sh && \
     /tmp/download_jars.sh $FRAMEWORK $SPARK_HOME $HADOOP_VERSION $AWS_SDK_VERSION $DELTA_FRAMEWORK_VERSION $HUDI_FRAMEWORK_VERSION $ICEBERG_FRAMEWORK_VERSION $ICEBERG_FRAMEWORK_SUB_VERSION $DEEQU_FRAMEWORK_VERSION
@@ -68,22 +72,26 @@ ENV PATH=${PATH}:${JAVA_HOME}/bin
 # Setting  up the ENV vars for local code, in AWS LAmbda you have to set Input_path and Output_path
 ENV INPUT_PATH=""
 ENV OUTPUT_PATH=""
-ENV AWS_ACCESS_KEY_ID=""
-ENV AWS_SECRET_ACCESS_KEY=""
-ENV AWS_REGION=""
-ENV AWS_SESSION_TOKEN=""
 ENV CUSTOM_SQL=""
+
+# Replace the existing ENV statements for AWS credentials with these
+ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+ENV AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
+ENV AWS_REGION=${AWS_REGION}
 
 # spark-class file is setting the memory to 1 GB
 COPY spark-class $SPARK_HOME/bin/
 RUN chmod -R 755 $SPARK_HOME
 
-# Install the function's dependencies
-COPY requirements.txt .
-RUN pip install -r requirements.txt 
+# Copy log4j properties file
+COPY log4j.properties $SPARK_HOME/conf/
 
 # Copy the Pyspark script to container
 COPY sparkLambdaHandler.py ${LAMBDA_TASK_ROOT}
 
-# calling the Lambda handler
-CMD [ "/var/task/sparkLambdaHandler.lambda_handler" ]
+# Make sure the handler file is executable
+RUN chmod 755 ${LAMBDA_TASK_ROOT}/sparkLambdaHandler.py
+
+# Set the correct CMD format for Lambda
+CMD [ "sparkLambdaHandler.lambda_handler" ]

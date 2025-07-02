@@ -50,10 +50,16 @@ echo "Creating ECR repository if it doesn't exist..."
 aws ecr describe-repositories --repository-names ${ECR_REPOSITORY_NAME} --region ${AWS_REGION} || \
 aws ecr create-repository --repository-name ${ECR_REPOSITORY_NAME} --region ${AWS_REGION} --image-tag-mutability MUTABLE --image-scanning-configuration scanOnPush=true
 
-# Build Docker image
+# Build Docker image with AWS credentials
 echo "Building Docker image..."
 cd Docker
-docker build -t ${ECR_REPOSITORY_NAME}:${IMAGE_TAG} .
+docker build --load --platform linux/amd64 \
+  --build-arg FRAMEWORK=SPARK \
+  --build-arg AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY" \
+  --build-arg AWS_SECRET_ACCESS_KEY="$AWS_SECRET_KEY" \
+  --build-arg AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
+  --build-arg AWS_REGION="$AWS_REGION" \
+  -t ${ECR_REPOSITORY_NAME}:${IMAGE_TAG} .
 
 # Tag Docker image
 echo "Tagging Docker image..."
@@ -81,6 +87,7 @@ sam deploy \
     --stack-name spark-code-interpreter \
     --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
     --resolve-s3 \
+    --no-fail-on-empty-changeset \
     --image-repository ${ECR_REPOSITORY_URI} \
     --parameter-overrides \
         ImageUri=${ECR_REPOSITORY_URI}:${IMAGE_TAG} \
