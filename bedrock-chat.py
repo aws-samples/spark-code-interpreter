@@ -83,8 +83,6 @@ with open('config.json','r',encoding='utf-8') as f:
 with open('pricing.json','r',encoding='utf-8') as f:
     pricing_file = json.load(f)
 
-st.write(config_file)
-
 # Configuration constants
 S3 = boto3.client('s3')
 DYNAMODB  = boto3.resource('dynamodb')
