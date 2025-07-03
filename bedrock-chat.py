@@ -46,8 +46,27 @@ from functools import partial
 import textract
 import random
 import logging
+import sys
 
-logger = logging.getLogger()
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger("bedrock-chat")
+
+# Add file handler for persistent logs
+try:
+    file_handler = logging.FileHandler('bedrock-chat.log')
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(file_handler)
+except Exception as e:
+    print(f"Could not set up file logging: {str(e)}")
+
 
 config = Config(
     read_timeout=600, # Read timeout parameter
@@ -203,36 +222,50 @@ def process_files(files):
 
 def handle_doc_upload_or_s3(file, cutoff=None):
     """Handle various document format"""
+    logger.info(f"Processing file: {file}")
     dir_name, ext = os.path.splitext(file)
-    if  ext.lower() in [".pdf", ".png", ".jpg",".tif",".jpeg"]:   
-        content=exract_pdf_text_aws(file)
-    elif ".csv"  == ext.lower():
-        content=parse_csv_from_s3(file,cutoff)
-    elif ext.lower() in [".xlsx", ".xls"]:
-        content=table_parser_utills(file,cutoff)   
-    elif  ".json"==ext.lower():      
-        obj=get_s3_obj_from_bucket_(file)
-        content = json.loads(obj['Body'].read())  
-    elif  ext.lower() in [".txt",".py"]:       
-        obj=get_s3_obj_from_bucket_(file)
-        content = obj['Body'].read()
-    elif ".docx" == ext.lower():       
-        obj=get_s3_obj_from_bucket_(file)
-        content = obj['Body'].read()
-        docx_buffer = io.BytesIO(content)
-        content = extract_text_and_tables(docx_buffer)
-    elif ".pptx" == ext.lower():       
-        obj=get_s3_obj_from_bucket_(file)
-        content = obj['Body'].read()
-        docx_buffer = io.BytesIO(content)        
-        content = extract_text_from_pptx_s3(docx_buffer)
-    else:            
-        obj=get_s3_obj_from_bucket_(file)
-        content = obj['Body'].read()
-        doc_buffer = io.BytesIO(content)
-        content = textract.process(doc_buffer).decode()
-    # Implement any other file extension logic 
-    return content
+    try:
+        if ext.lower() in [".pdf", ".png", ".jpg",".tif",".jpeg"]:   
+            logger.info(f"Processing {ext} file using PDF/image extraction")
+            content=exract_pdf_text_aws(file)
+        elif ".csv" == ext.lower():
+            logger.info(f"Processing CSV file")
+            content=parse_csv_from_s3(file,cutoff)
+        elif ext.lower() in [".xlsx", ".xls"]:
+            logger.info(f"Processing Excel file")
+            content=table_parser_utills(file,cutoff)   
+        elif ".json"==ext.lower():      
+            logger.info(f"Processing JSON file")
+            obj=get_s3_obj_from_bucket_(file)
+            content = json.loads(obj['Body'].read())  
+        elif ext.lower() in [".txt",".py"]:       
+            logger.info(f"Processing text file")
+            obj=get_s3_obj_from_bucket_(file)
+            content = obj['Body'].read()
+        elif ".docx" == ext.lower():       
+            logger.info(f"Processing Word document")
+            obj=get_s3_obj_from_bucket_(file)
+            content = obj['Body'].read()
+            docx_buffer = io.BytesIO(content)
+            content = extract_text_and_tables(docx_buffer)
+        elif ".pptx" == ext.lower():       
+            logger.info(f"Processing PowerPoint file")
+            obj=get_s3_obj_from_bucket_(file)
+            content = obj['Body'].read()
+            docx_buffer = io.BytesIO(content)        
+            content = extract_text_from_pptx_s3(docx_buffer)
+        else:            
+            logger.info(f"Processing generic file with textract: {ext}")
+            obj=get_s3_obj_from_bucket_(file)
+            content = obj['Body'].read()
+            doc_buffer = io.BytesIO(content)
+            content = textract.process(doc_buffer).decode()
+        
+        logger.info(f"Successfully processed file: {file}")
+        return content
+    except Exception as e:
+        logger.error(f"Error processing file {file}: {str(e)}")
+        raise e
 
 class InvalidContentError(Exception):
     pass
@@ -618,20 +651,35 @@ def get_s3_keys(prefix):
     s3 = boto3.client('s3')
     keys = []
     next_token = None
+    
+    logger.info(f"Listing S3 keys with prefix: {prefix} in bucket: {BUCKET}")
+    
     while True:
-        if next_token:
-            response = s3.list_objects_v2(Bucket=BUCKET, Prefix=prefix, ContinuationToken=next_token)
-        else:
-            response = s3.list_objects_v2(Bucket=BUCKET, Prefix=prefix)
-        if "Contents" in response:
-            for obj in response['Contents']:
-                key = obj['Key']
-                name = key[len(prefix):]
-                keys.append(name)
-        if "NextContinuationToken" in response:
-            next_token = response["NextContinuationToken"]
-        else:
-            break
+        try:
+            if next_token:
+                response = s3.list_objects_v2(Bucket=BUCKET, Prefix=prefix, ContinuationToken=next_token)
+            else:
+                response = s3.list_objects_v2(Bucket=BUCKET, Prefix=prefix)
+                
+            if "Contents" in response:
+                for obj in response['Contents']:
+                    key = obj['Key']
+                    name = key[len(prefix):]
+                    keys.append(name)
+                logger.debug(f"Found {len(response['Contents'])} objects in this batch")
+            else:
+                logger.info(f"No objects found with prefix: {prefix}")
+                
+            if "NextContinuationToken" in response:
+                next_token = response["NextContinuationToken"]
+                logger.debug(f"Continuing to next batch with token: {next_token}")
+            else:
+                break
+        except Exception as e:
+            logger.error(f"Error listing S3 keys: {str(e)}")
+            raise e
+            
+    logger.info(f"Found total of {len(keys)} keys with prefix: {prefix}")
     return keys
     
 def parse_s3_uri(uri):
@@ -644,64 +692,126 @@ def parse_s3_uri(uri):
     pattern = r'^s3://([^/]+)/(.*)$'
     match = re.match(pattern, uri)
     if match:
-        return match.groups()
+        bucket, key = match.groups()
+        logger.debug(f"Parsed S3 URI - Bucket: {bucket}, Key: {key}")
+        return (bucket, key)
+    logger.error(f"Failed to parse S3 URI: {uri}")
     return (None, None)
     
 def copy_s3_object(source_uri, dest_bucket, dest_key):
     """
     Copy an object from one S3 location to another.
-
-    :param source_uri: S3 URI of the source object
-    :param dest_bucket: Name of the destination bucket
-    :param dest_key: Key to be used for the destination object
-    :return: True if successful, False otherwise
     """
     s3 = boto3.client('s3')
 
     # Parse the source URI
     source_bucket, source_key = parse_s3_uri(source_uri)
     if not source_bucket or not source_key:
-        print(f"Invalid source URI: {source_uri}")
+        logger.error(f"Invalid source URI: {source_uri}")
         return False
 
     try:
-        # Create a copy source dictionary
+        # Create a copy source dictionary with proper formatting
         copy_source = {
             'Bucket': source_bucket,
             'Key': source_key
         }
 
-        # Copy the object
-        s3.copy_object(CopySource=copy_source, Bucket=dest_bucket, Key=f"{dest_key}/{source_key}")
+        # Add detailed logging
+        logger.info(f"S3 COPY - Source: s3://{source_bucket}/{source_key}")
+        logger.info(f"S3 COPY - Destination: s3://{dest_bucket}/{dest_key}/{source_key}")
+        
+        # Check if source file exists
+        try:
+            s3.head_object(Bucket=source_bucket, Key=source_key)
+            logger.info(f"S3 COPY - Source file exists")
+        except Exception as e:
+            logger.error(f"S3 COPY - Source file does not exist: {str(e)}")
+            raise e
 
-        print(f"File copied from {source_uri} to s3://{dest_bucket}/{dest_key}/{source_key}")
-        return f"s3://{dest_bucket}/{dest_key}/{source_key}"
+        # Always preserve the complete directory structure
+        dest_full_key = f"{dest_key}/{source_key}"
+        
+        # Add detailed logging
+        logger.info(f"S3 COPY - Source: s3://{source_bucket}/{source_key}")
+        logger.info(f"S3 COPY - Destination: s3://{dest_bucket}/{dest_full_key}")
+            
+        # Copy the object
+        try:
+            response = s3.copy_object(
+                CopySource=copy_source,
+                Bucket=dest_bucket,
+                Key=dest_full_key
+            )
+            logger.info(f"S3 COPY - Copy operation successful")
+        except Exception as e:
+            logger.error(f"S3 COPY - Copy operation failed: {str(e)}")
+            raise e
+
+        logger.info(f"File copied successfully from {source_uri} to s3://{dest_bucket}/{dest_full_key}")
+        return f"s3://{dest_bucket}/{dest_full_key}"
 
     except ClientError as e:
-        print(f"An error occurred: {e}")
-        raise(e)
-        # return False
+        error_code = e.response['Error']['Code']
+        error_message = e.response['Error']['Message']
+        logger.error(f"Error copying object: {error_code} - {error_message}")
+        
+        if error_code == 'NoSuchKey':
+            logger.error(f"The source file does not exist: {source_uri}")
+        elif error_code == 'NoSuchBucket':
+            logger.error(f"One of the buckets does not exist: {source_bucket} or {dest_bucket}")
+        elif error_code == 'AccessDenied':
+            logger.error("Access denied. Check IAM permissions for both source and destination buckets")
+        
+        raise e
+        
+        if error_code == 'NoSuchKey':
+            print(f"The source file does not exist: {source_uri}")
+        elif error_code == 'NoSuchBucket':
+            print(f"One of the buckets does not exist: {source_bucket} or {dest_bucket}")
+        elif error_code == 'AccessDenied':
+            print("Access denied. Check IAM permissions for both source and destination buckets")
+        
+        raise e
+
 
 
 def get_s3_obj_from_bucket_(file):
+    """Get an object from S3 bucket"""
     s3 = boto3.client('s3')
     match = re.match("s3://(.+?)/(.+)", file)
     if match:
         bucket_name = match.group(1)
-        key = match.group(2)    
-        obj = s3.get_object(Bucket=bucket_name, Key=key)  
-    return obj
+        key = match.group(2)
+        logger.info(f"Getting object from S3 - Bucket: {bucket_name}, Key: {key}")
+        try:
+            obj = s3.get_object(Bucket=bucket_name, Key=key)
+            logger.info(f"Successfully retrieved object from S3: {file}")
+            return obj
+        except Exception as e:
+            logger.error(f"Error retrieving object from S3: {file} - {str(e)}")
+            raise e
+    else:
+        logger.error(f"Invalid S3 URI format: {file}")
+        raise ValueError(f"Invalid S3 URI format: {file}")
 
 def put_obj_in_s3_bucket_(docs):
+    """Uploads a file to an S3 bucket and returns the S3 URI of the uploaded object."""
     if isinstance(docs,str):
         s3_uri_pattern = r'^s3://([^/]+)/(.*?([^/]+)/?)$'
         if bool(re.match(s3_uri_pattern,  docs)):
+            logger.info(f"Copying S3 object from: {docs} to bucket: {BUCKET}, path: {S3_DOC_CACHE_PATH}")
             file_uri=copy_s3_object(docs, BUCKET, S3_DOC_CACHE_PATH)
+            logger.info(f"File copied to: {file_uri}")
             return file_uri
+        else:
+            logger.warning(f"Invalid S3 URI format: {docs}")
     else:
         file_name=os.path.basename(docs.name)
         file_path=f"{S3_DOC_CACHE_PATH}/{file_name}"
+        logger.info(f"Uploading file {file_name} to S3 bucket {BUCKET} at path {file_path}")
         S3.put_object(Body=docs.read(),Bucket= BUCKET, Key=file_path)
+        logger.info(f"File uploaded successfully to s3://{BUCKET}/{file_path}")
         return f"s3://{BUCKET}/{file_path}"
 
 
@@ -935,8 +1045,8 @@ When providing your respons:
                 "modelID":model,
                 "code":tool['input']['code'],
                 "time":str(time.time()),
-"input_token":round(st.session_state['input_token']) ,
-        "output_token":round(st.session_state['output_token']),
+                "input_token":round(st.session_state['input_token']) ,
+                "output_token":round(st.session_state['output_token']),
                 "tool_result_id":tool['toolUseId'],
                 "tool_name":'',
                 "tool_params":''}               

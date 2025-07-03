@@ -1,6 +1,6 @@
 boto3
 scikit-learn
-plotly
+plotly>=5.0.0,<6.0.0
 pandas
 numpy
 seaborn

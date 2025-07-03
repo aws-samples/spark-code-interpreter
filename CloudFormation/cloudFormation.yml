@@ -376,6 +376,7 @@ Resources:
           # yum install -y tesseract-ocr-all || echo "Optional dependency tesseract-ocr-all installation failed, continuing..."
 
           # Clone the Git repository into a folder named Bluebear
+          cd ~/
           echo "Cloning repo ${GitRepo}"
           git clone -b ${GitBranch} ${GitRepo} bluebear
           cd bluebear
