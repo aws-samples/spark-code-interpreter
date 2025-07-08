@@ -1119,9 +1119,9 @@ spark.sparkContext.setLogLevel("WARN")
 # Configure Spark to use S3A FileSystem
 spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
 
-# Configure Spark with AWS environmental credentials
+# Configure Spark with AWS credentials (uses Lambda's IAM role)
 spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider", 
-                                     "com.amazonaws.auth.EnvironmentVariableCredentialsProvider,")
+                                     "com.amazonaws.auth.DefaultAWSCredentialsProviderChain")
 
 # Read CSV data
 df = spark.read.csv("s3a://path/to/file/file.csv")
@@ -1236,7 +1236,12 @@ with open('/tmp/output.json', 'w') as f:
                                         "spark.driver.memory": "5G",
                                         "spark.dynamicAllocation.enabled": "false",
                                         "spark.shuffle.service.enabled": "false",                 
-                                        "spark.driver.bindAddress": "127.0.0.1",}
+                                        "spark.driver.bindAddress": "127.0.0.1",
+                                        "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
+                                        "spark.hadoop.fs.s3a.aws.credentials.provider": "com.amazonaws.auth.DefaultAWSCredentialsProviderChain",
+                                        "spark.hadoop.fs.s3a.endpoint": "s3.amazonaws.com",
+                                        "spark.hadoop.fs.s3a.path.style.access": "false",
+                                        "spark.hadoop.fs.s3a.connection.ssl.enabled": "true"}
                             
                             payload = {
                                 "body": {

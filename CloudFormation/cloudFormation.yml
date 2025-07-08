@@ -265,6 +265,13 @@ Resources:
               - dynamodb:UpdateItem
               - dynamodb:Query
             Resource: !GetAtt ChatHistoryTable.Arn
+          - Effect: Allow
+            Action:
+              - bedrock:InvokeModel
+              - bedrock:InvokeModelWithResponseStream
+              - bedrock:ListFoundationModels
+              - bedrock:GetFoundationModel
+            Resource: '*'
       Roles:
         - !Ref SparkOnLambdaRole
  
@@ -335,6 +342,13 @@ Resources:
                 Action:
                   - lambda:InvokeFunction
                 Resource: !GetAtt SparkOnLambda.Arn
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock:ListFoundationModels
+                  - bedrock:GetFoundationModel
+                Resource: '*'
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -394,8 +408,8 @@ Resources:
           sed -i -e "s/{{REGION}}/${AWS::Region}/g" config.json
 
 
-          # Start the Bluebear Streamlit app in a tmux session
-          tmux new -d -s mysession "python3 -m streamlit run bedrock-chat.py"
+          # Start the Bluebear Streamlit app in a tmux session with logging
+          tmux new -d -s mysession "python3 -m streamlit run bedrock-chat.py 2>&1 | tee /root/bluebear/streamlit.log"
 
           echo "Setup complete. Use 'tmux attach -t mysession' to view the session."
 

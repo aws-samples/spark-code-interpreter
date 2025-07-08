@@ -13,12 +13,6 @@ ARG ICEBERG_FRAMEWORK_VERSION=3.3_2.12
 ARG ICEBERG_FRAMEWORK_SUB_VERSION=1.0.0
 ARG DEEQU_FRAMEWORK_VERSION=2.0.3-spark-3.3
 
-# AWS credentials with default values
-ARG AWS_ACCESS_KEY_ID=""
-ARG AWS_SECRET_ACCESS_KEY=""
-ARG AWS_SESSION_TOKEN=""
-ARG AWS_REGION="us-east-1"
-
 # Perform system updates and install dependencies
 RUN yum update -y && \
     yum -y update zlib && \
@@ -73,12 +67,6 @@ ENV PATH=${PATH}:${JAVA_HOME}/bin
 ENV INPUT_PATH=""
 ENV OUTPUT_PATH=""
 ENV CUSTOM_SQL=""
-
-# Replace the existing ENV statements for AWS credentials with these
-ENV AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-ENV AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-ENV AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN}
-ENV AWS_REGION=${AWS_REGION}
 
 # spark-class file is setting the memory to 1 GB
 COPY spark-class $SPARK_HOME/bin/
