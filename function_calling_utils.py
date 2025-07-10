@@ -137,9 +137,11 @@ def bedrock_claude_(params,chat_history,system_message, prompt,model_id,image_pa
     if image_path:       
         if not isinstance(image_path, list):
             image_path=[image_path]      
-        for img in image_path:
+        for img in image_path:            
             s3 = boto3.client('s3',region_name="us-east-1")
             match = re.match("s3://(.+?)/(.+)", img)            
+            if not match:
+                raise ValueError(f"Invalid S3 URI format: {img}")
             image_name=os.path.basename(img)
             _,ext=os.path.splitext(image_name)
             if "jpg" in ext: ext=".jpeg"           
@@ -231,7 +233,7 @@ def copy_s3_object(source_uri, dest_bucket, dest_key):
     :param source_uri: S3 URI of the source object
     :param dest_bucket: Name of the destination bucket
     :param dest_key: Key to be used for the destination object
-    :return: True if successful, False otherwise
+    :return: S3 URI of the copied object
     """
     s3 = boto3.client('s3')
 
@@ -248,14 +250,17 @@ def copy_s3_object(source_uri, dest_bucket, dest_key):
             'Key': source_key
         }
 
+        # Extract only the filename from the source key to avoid path duplication
+        filename = os.path.basename(source_key)
+        dest_full_key = f"{dest_key}/{filename}"
+
         # Copy the object
-        s3.copy_object(CopySource=copy_source, Bucket=dest_bucket, Key=f"{dest_key}/{source_key}")
-        return f"s3://{dest_bucket}/{dest_key}/{source_key}"
+        s3.copy_object(CopySource=copy_source, Bucket=dest_bucket, Key=dest_full_key)
+        return f"s3://{dest_bucket}/{dest_full_key}"
 
     except ClientError as e:
         print(f"An error occurred: {e}")
         raise(e)
-        # return False
 
 class LibraryInstallationDetected(Exception):
     """Exception raised when potential library installation is detected."""
@@ -265,11 +270,11 @@ class LibraryInstallationDetected(Exception):
 def check_for_library_installs(code_string):
     # Check for pip install commands using subprocess
     if re.search(r'subprocess\.(?:check_call|run|Popen)\s*\(\s*\[.*pip.*install', code_string):
-        raise LibraryInstallationDetected(f"Potential library installation detected: '{keyword}' found in code.")
+        raise LibraryInstallationDetected("Potential library installation detected: subprocess pip install found in code.")
 
     # Check for pip as a module
     if re.search(r'pip\._internal\.main\(\[.*install', code_string) or re.search(r'pip\.main\(\[.*install', code_string):
-        raise LibraryInstallationDetected(f"Potential library installation detected: '{keyword}' found in code.")
+        raise LibraryInstallationDetected("Potential library installation detected: pip module install found in code.")
 
     keywords = ["subprocess","pip","conda","install","easy_install","setup.py","pipenv",
             "git+","svn+","hg+","bzr+","requirements.txt","environment.yml","apt-get","yum","brew",
@@ -323,6 +328,8 @@ def get_s3_obj_from_bucket_(file):
     """
     s3 = boto3.client('s3',region_name="us-east-1")
     match = re.match("s3://(.+?)/(.+)", file)    
+    if not match:
+        raise ValueError(f"Invalid S3 URI format: {file}")
     bucket_name = match.group(1)
     key = match.group(2)    
     obj = s3.get_object(Bucket=bucket_name, Key=key)  
@@ -561,8 +568,7 @@ def exract_pdf_text_aws(file):
             img_bytes = io.BytesIO()
             s3.Bucket(bucket_name).download_fileobj(key, img_bytes)
             img_bytes.seek(0)         
-            image_stream = io.BytesIO(image_bytes)
-            image = Image.open(image_stream)
+            image = Image.open(img_bytes)
             text = pytesseract.image_to_string(image)
         return text    
 
@@ -877,14 +883,17 @@ The data files are stored in Amazon S3 (the XML tags point to the S3 URI) and mu
 
 Important considerations:
 - Always use S3A file system when reading files from S3.
-- Images, if available in the code, must be saved in the '/tmp' directory.
-- Always use fig.write_image() to save plotly figures as PNG.
-- Each plots must be saved as PNG and PLOTLY (.plotly) files in '/tmp' directory.
+- Focus on text-based analysis and data processing.
+- Generate plots using Plotly and save them as .plotly files in '/tmp' directory.
 - Use proper namespace management for python and pyspark libraries.
+- IMPORTANT: Use only supported Plotly graph types. DO NOT use 'heatmapgl', 'scattergl', or other 'gl' variants. Use 'heatmap', 'scatter', etc. instead.
+- CRITICAL: Always initialize the 'output' variable at the beginning of your code: output = {}
+- CRITICAL: Always ensure the 'output' variable is properly assigned before the end of the script
+- Use try/except/finally blocks to ensure 'output' is always defined
+- DO NOT use fig.write_image() as it requires Chrome/Kaleido. Instead, save plots as .plotly files only.
 
 Additional info: The code must output a JSON object variable name "output" with following keys:
 - 'text': Any text output generated by the Python code.
-- 'image': If the Python code generates any image outputs, image filenames (without the '/tmp' parent directory) will be mapped to this key. If no image is generated, no need for this key. (Must be in list format)
 - 'plotly-files': 'plot.plotly' # or ['plot1.plotly', 'plot2.plotly'] for multiple plotly figures
 
 Reflect on your approach and considerations provided in reflection XML tags.
@@ -1013,6 +1022,8 @@ def function_caller_claude_(params,handler=None):
         for img in image_path:            
             s3 = boto3.client('s3',region_name="us-east-1")
             match = re.match("s3://(.+?)/(.+)", img)            
+            if not match:
+                raise ValueError(f"Invalid S3 URI format: {img}")
             image_name=os.path.basename(img)
             _,ext=os.path.splitext(image_name)
             if "jpg" in ext: ext=".jpeg"           
@@ -1072,38 +1083,44 @@ Processing:
 - Use proper namespace management for python and pyspark libraries.
 
 Visualization:
-   - Ensure plots are clear and legible with a figure size of 10 by 12 inches.
-   - Save generated plots as PNG files in /tmp directory. Use appropiate filenames based on title of plots.  
-   - Always use fig.write_image() to save plotly figures as PNG.
-   - Use Plotly for plots when possible and save plotly objects as ".plotly" also in /tmp directory
-   - Remember, you should save a PNG and .plotly version for each generated plot.
+   - Focus on text-based analysis and data processing.
+   - Generate plots using Plotly and save them as .plotly files in /tmp directory.
+   - Use Plotly for plots when possible and save plotly objects as ".plotly" in /tmp directory
+   - IMPORTANT: Use only supported Plotly graph types. DO NOT use 'heatmapgl', 'scattergl', or other 'gl' variants. Use 'heatmap', 'scatter', etc. instead.
+   - DO NOT use fig.write_image() as it requires Chrome/Kaleido. Instead, save plots as .plotly files only.
 
 Output: JSON object named "output" with:
 - 'text': All text-based results and printed information
-- 'image': Filename(s) of PNG plot(s)
 - 'plotly-files': Plotly objects saved as ".plotly"
 
 Important:
 - Generate code for analysis only, without interpreting results
 - Avoid making conclusive statements or recommendations
 - Present calculated statistics and generated visualizations without drawing conclusions
-- Save plots as PNG and .plotly files accordingly
 - Use proper namespace management for python and pyspark libraries.
+- CRITICAL: Always initialize the 'output' variable at the beginning of your code: output = {}
+- CRITICAL: Always ensure the 'output' variable is properly assigned before the end of the script
 
 Notes:
-- Save plots as PNG and .plotly files in '/tmp' directory
+- Save plots as .plotly files in '/tmp' directory
 - Use efficient, well-documented, PEP 8 compliant code
 - Implement error handling and input validation
 - Follow data analysis and visualization best practices
 - Include plots whenever possible
 - Store all results in the 'output' JSON object
 - Ensure 'output' is the final variable assigned in the code, whether inside or outside a function
+- Use try/except/finally blocks to ensure 'output' is always defined
 
 Example:
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
 import plotly.io as pio
-... REST of IMPORT
+import plotly.graph_objects as go
+import plotly.express as px
+import json
+
+# Initialize output variable at the beginning
+output = {}
 
 # Initialize Spark
 spark = SparkSession.builder \
@@ -1119,34 +1136,43 @@ spark.sparkContext.setLogLevel("WARN")
 # Configure Spark to use S3A FileSystem
 spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
 
-# Configure Spark with AWS environmental credentials
+# Configure Spark with AWS credentials (uses Lambda's IAM role)
 spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider", 
-                                     "com.amazonaws.auth.EnvironmentVariableCredentialsProvider,")
+                                     "com.amazonaws.auth.DefaultAWSCredentialsProviderChain")
 
-# Read CSV data
-df = spark.read.csv("s3a://path/to/file/file.csv")
-
-...REST OF CODE
-
-#Save plot as PNG
-fig.write_image("/tmp/plot.png")
-
-#Save plots as PLOTLY files
-pio.write_json(fig, '/tmp/plot.plotly')
-
-# Prepare output
-output = {
-'text': 'Statistical analysis results...\nOther printed output...',
-'image': 'plot.png'  # or ['plot1.png', 'plot2.png'] for multiple images
-'plotly-files': 'plot.plotly' # or ['plot1.plotly', 'plot2.plotly'] for multiple plotly figures
-}
-
-# Clean up
-spark.stop()
-
-# Save output as JSON file in 'tmp' dir
-with open('/tmp/output.json', 'w') as f:
-    json.dump(output, f)
+try:
+    # Read CSV data
+    df = spark.read.csv("s3a://path/to/file/file.csv")
+    
+    # Your analysis code here
+    # ...
+    
+    # Create plots using supported Plotly types (NOT heatmapgl, scattergl, etc.)
+    fig = go.Figure(data=go.Heatmap(z=[[1, 2, 3], [4, 5, 6]]))  # Use 'heatmap', not 'heatmapgl'
+    
+    # Save plots as PLOTLY files only (no PNG generation)
+    pio.write_json(fig, '/tmp/plot.plotly')
+    
+    # Prepare output
+    output = {
+        'text': 'Statistical analysis results...\nOther printed output...',
+        'plotly-files': 'plot.plotly'  # or ['plot1.plotly', 'plot2.plotly'] for multiple plotly figures
+    }
+    
+except Exception as e:
+    # Ensure output is always defined even on error
+    output = {
+        'text': f'Error occurred: {str(e)}',
+        'plotly-files': []
+    }
+    
+finally:
+    # Clean up
+    spark.stop()
+    
+    # Save output as JSON file in 'tmp' dir
+    with open('/tmp/output.json', 'w') as f:
+        json.dump(output, f)
 """
                                 },
                                 "dataset_name": {
@@ -1225,6 +1251,9 @@ with open('/tmp/output.json', 'w') as f:
                     i=0
                     # hack to save the output ("output") object from the generated code as a temp file (subprocess can capture variables) so it can be returned as a JSON object from Lambda back to the client
                     appendix="""import json
+# Ensure output variable exists before writing to file
+if 'output' not in locals() and 'output' not in globals():
+    output = {'text': 'No output generated', 'image': [], 'plotly-files': []}
 with open('/tmp/output.json', 'w') as f:
     json.dump(output, f)"""
                     while i<self_correction_retry:
@@ -1236,7 +1265,12 @@ with open('/tmp/output.json', 'w') as f:
                                         "spark.driver.memory": "5G",
                                         "spark.dynamicAllocation.enabled": "false",
                                         "spark.shuffle.service.enabled": "false",                 
-                                        "spark.driver.bindAddress": "127.0.0.1",}
+                                        "spark.driver.bindAddress": "127.0.0.1",
+                                        "spark.hadoop.fs.s3a.impl": "org.apache.hadoop.fs.s3a.S3AFileSystem",
+                                        "spark.hadoop.fs.s3a.aws.credentials.provider": "com.amazonaws.auth.DefaultAWSCredentialsProviderChain",
+                                        "spark.hadoop.fs.s3a.endpoint": "s3.amazonaws.com",
+                                        "spark.hadoop.fs.s3a.path.style.access": "false",
+                                        "spark.hadoop.fs.s3a.connection.ssl.enabled": "true"}
                             
                             payload = {
                                 "body": {

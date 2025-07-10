@@ -1,10 +1,10 @@
 boto3
 scikit-learn
-plotly>=5.0.0,<6.0.0
+plotly>=6.1.1
 pandas
 numpy
 seaborn
 matplotlib
 s3fs
 openpyxl
-kaleido
+kaleido>=1.0.0

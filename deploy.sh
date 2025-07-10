@@ -52,14 +52,17 @@ aws ecr create-repository --repository-name ${ECR_REPOSITORY_NAME} --region ${AW
 
 # Build Docker image with AWS credentials
 echo "Building Docker image..."
+
+# Set up buildx for x86_64 platform (optimal for Spark workloads)
+echo "Setting up Docker buildx for x86_64 platform..."
+docker buildx create --name multiplatform --use --driver docker-container || true
+docker buildx inspect --bootstrap
+
 cd Docker
-docker build --load --platform linux/amd64 \
+docker buildx build --platform linux/amd64 \
   --build-arg FRAMEWORK=SPARK \
-  --build-arg AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY" \
-  --build-arg AWS_SECRET_ACCESS_KEY="$AWS_SECRET_KEY" \
-  --build-arg AWS_SESSION_TOKEN="$AWS_SESSION_TOKEN" \
   --build-arg AWS_REGION="$AWS_REGION" \
-  -t ${ECR_REPOSITORY_NAME}:${IMAGE_TAG} .
+  -t ${ECR_REPOSITORY_NAME}:${IMAGE_TAG} --load .
 
 # Tag Docker image
 echo "Tagging Docker image..."
