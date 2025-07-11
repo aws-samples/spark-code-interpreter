@@ -81,8 +81,7 @@ echo "Done! SparkonLambda Image has been built and pushed to ECR successfully."
 
 # Add this near the top of your deploy.sh script
 MY_IP=$(curl -s https://checkip.amazonaws.com)/32
-# GIT_BRANCH=`git rev-parse --abbrev-ref HEAD`
-GIT_BRANCH="feature/improve-prompt-spark-job-generation"
+GIT_BRANCH=`git rev-parse --abbrev-ref HEAD`
 echo "Inititaing deployment of the bedrock application"
 cd ../CloudFormation/
 sam deploy \
