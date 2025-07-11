@@ -85,9 +85,6 @@ with open('pricing.json','r',encoding='utf-8') as f:
 
 
 # Configuration constants
-S3 = boto3.client('s3')
-DYNAMODB  = boto3.resource('dynamodb')
-COGNITO = boto3.client('cognito-idp')
 LOCAL_CHAT_FILE_NAME = "chat-history.json"
 DYNAMODB_TABLE=config_file["DynamodbTable"]
 DYNAMODB_FLG=config_file["useDynamoDB"]
@@ -105,6 +102,10 @@ INPUT_BUCKET=config_file["input_bucket"]
 INPUT_S3_PATH=config_file["input_s3_path"]
 INPUT_EXT=tuple(f".{x}" for x in config_file["input_file_ext"].split(','))
 
+# AWS clients and resources (after region is defined)
+S3 = boto3.client('s3', region_name=REGION)
+DYNAMODB  = boto3.resource('dynamodb', region_name=REGION)
+COGNITO = boto3.client('cognito-idp', region_name=REGION)
 bedrock_runtime = boto3.client(service_name='bedrock-runtime',region_name=REGION,config=config)
 
 if 'messages' not in st.session_state:
@@ -131,7 +132,7 @@ def get_object_with_retry(bucket, key):
     retries = 0   
     backoff_base = 2
     max_backoff = 3  # Maximum backoff time in seconds
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     while retries < max_retries:
         try:
             response = s3.get_object(Bucket=bucket, Key=key)
@@ -273,7 +274,7 @@ class InvalidContentError(Exception):
 
 def detect_encoding(s3_uri):
     """detect csv encoding"""
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     match = re.match("s3://(.+?)/(.+)", s3_uri)
     if match:
         bucket_name = match.group(1)
@@ -459,7 +460,7 @@ def exract_pdf_text_aws(file):
             S3.put_object(Body=document.get_text(config=config), Bucket=BUCKET, Key=f"{TEXTRACT_RESULT_CACHE_PATH}/{file_base_name}.txt") 
             return document.get_text(config=config)
     else:
-        s3=boto3.resource("s3")
+        s3=boto3.resource("s3", region_name=REGION)
         match = re.match("s3://(.+?)/(.+)", file)
         if match:
             bucket_name = match.group(1)
@@ -492,7 +493,7 @@ def strip_newline(cell):
 
 def table_parser_openpyxl(file, cutoff):
     # Read from S3
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     match = re.match("s3://(.+?)/(.+)", file)
     if match:
         bucket_name = match.group(1)
@@ -533,7 +534,7 @@ def table_parser_openpyxl(file, cutoff):
 
 def calamaine_excel_engine(file,cutoff):
     # # Read from S3
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     match = re.match("s3://(.+?)/(.+)", file)
     if match:
         bucket_name = match.group(1)
@@ -600,7 +601,7 @@ def get_chat_history_db(params,cutoff,claude3):
             if d['image'] and claude3 and LOAD_DOC_IN_ALL_CHAT_CONVO:
                 content=[]
                 for img in d['image']:
-                    s3 = boto3.client('s3')
+                    s3 = boto3.client('s3', region_name=REGION)
                     match = re.match("s3://(.+?)/(.+)", img)
                     image_name=os.path.basename(img)
                     _,ext=os.path.splitext(image_name)
@@ -649,7 +650,7 @@ def get_chat_history_db(params,cutoff,claude3):
   
 def get_s3_keys(prefix):
     """list all keys in an s3 path"""
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     keys = []
     next_token = None
     
@@ -708,7 +709,7 @@ def copy_s3_object(source_uri, dest_bucket, dest_key):
     :param dest_key: Key to be used for the destination object
     :return: S3 URI of the copied object
     """
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
 
     # Parse the source URI
     source_bucket, source_key = parse_s3_uri(source_uri)
@@ -742,7 +743,7 @@ def copy_s3_object(source_uri, dest_bucket, dest_key):
 
 def get_s3_obj_from_bucket_(file):
     """Get an object from S3 bucket"""
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     match = re.match("s3://(.+?)/(.+)", file)
     if match:
         bucket_name = match.group(1)
@@ -917,7 +918,7 @@ def list_csv_xlsx_in_s3_folder(bucket_name, folder_path):
     :param folder_path: Path to the folder in the S3 bucket
     :return: List of CSV and XLSX file names in the folder
     """
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     csv_xlsx_files = []
 
     try:

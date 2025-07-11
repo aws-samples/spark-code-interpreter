@@ -39,7 +39,6 @@ config = Config(
 with open('config.json','r',encoding='utf-8') as f:
     config_file = json.load(f)
     
-DYNAMODB  = boto3.resource('dynamodb')
 LOCAL_CHAT_FILE_NAME = "chat-history.json"
 DYNAMODB_TABLE=config_file["DynamodbTable"]
 BUCKET=config_file["Bucket_Name"]
@@ -50,6 +49,7 @@ LOAD_DOC_IN_ALL_CHAT_CONVO=config_file["load-doc-in-chat-history"]
 CHAT_HISTORY_LENGTH=config_file["chat-history-loaded-length"]
 DYNAMODB_USER=config_file["UserId"]
 REGION=config_file["bedrock-region"]
+DYNAMODB  = boto3.resource('dynamodb', region_name=REGION)
 USE_TEXTRACT=config_file["AmazonTextract"]
 CSV_SEPERATOR=config_file["csv-delimiter"]
 LAMBDA_FUNC=config_file["lambda-function"]
@@ -59,7 +59,7 @@ INPUT_BUCKET=config_file["input_bucket"]
 with open('pricing.json','r',encoding='utf-8') as f:
     pricing_file = json.load(f)
 
-S3=boto3.client('s3')
+S3=boto3.client('s3', region_name=REGION)
 def put_db(params,messages):
     """Store long term chat history in DynamoDB"""    
     chat_item = {
@@ -235,7 +235,7 @@ def copy_s3_object(source_uri, dest_bucket, dest_key):
     :param dest_key: Key to be used for the destination object
     :return: S3 URI of the copied object
     """
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
 
     # Parse the source URI
     source_bucket, source_key = parse_s3_uri(source_uri)
@@ -463,7 +463,7 @@ def extract_text_from_pptx_s3(pptx_buffer):
 
 def get_s3_keys(prefix):
     """list all keys in an s3 path"""
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     keys = []
     next_token = None
     while True:
@@ -487,7 +487,7 @@ def get_object_with_retry(bucket, key):
     retries = 0   
     backoff_base = 2
     max_backoff = 3  # Maximum backoff time in seconds
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     while retries < max_retries:
         try:
             response = s3.get_object(Bucket=bucket, Key=key)
@@ -545,7 +545,7 @@ def exract_pdf_text_aws(file):
             S3.put_object(Body=document.get_text(config=config), Bucket=BUCKET, Key=f"{TEXTRACT_RESULT_CACHE_PATH}/{file_base_name}.txt") 
             return document.get_text(config=config)
     else:
-        s3=boto3.resource("s3")
+        s3=boto3.resource("s3", region_name=REGION)
         match = re.match("s3://(.+?)/(.+)", file)
         if match:
             bucket_name = match.group(1)
@@ -887,7 +887,7 @@ Important considerations:
 - Generate plots using Plotly and save them as .plotly files in '/tmp' directory.
 - Use proper namespace management for python and pyspark libraries.
 - IMPORTANT: Use only supported Plotly graph types. DO NOT use 'heatmapgl', 'scattergl', or other 'gl' variants. Use 'heatmap', 'scatter', etc. instead.
-- CRITICAL: Always initialize the 'output' variable at the beginning of your code: output = {}
+- CRITICAL: Always initialize the 'output' variable at the beginning of your code: output = {{}}
 - CRITICAL: Always ensure the 'output' variable is properly assigned before the end of the script
 - Use try/except/finally blocks to ensure 'output' is always defined
 - DO NOT use fig.write_image() as it requires Chrome/Kaleido. Instead, save plots as .plotly files only.

@@ -61,7 +61,7 @@ docker buildx inspect --bootstrap
 cd Docker
 docker buildx build --platform linux/amd64 \
   --build-arg FRAMEWORK=SPARK \
-  --build-arg AWS_REGION="$AWS_REGION" \
+  --build-arg AWS_REGION=${AWS_REGION} \
   -t ${ECR_REPOSITORY_NAME}:${IMAGE_TAG} --load .
 
 # Tag Docker image
@@ -81,7 +81,8 @@ echo "Done! SparkonLambda Image has been built and pushed to ECR successfully."
 
 # Add this near the top of your deploy.sh script
 MY_IP=$(curl -s https://checkip.amazonaws.com)/32
-GIT_BRANCH=`git rev-parse --abbrev-ref HEAD`
+# GIT_BRANCH=`git rev-parse --abbrev-ref HEAD`
+GIT_BRANCH="feature/improve-prompt-spark-job-generation"
 echo "Inititaing deployment of the bedrock application"
 cd ../CloudFormation/
 sam deploy \
@@ -101,5 +102,8 @@ sam deploy \
         InputS3Path=${INPUT_S3_PATH} \
         LambdaFunction=${LAMBDA_FUNCTION} \
         MyIp=${MY_IP} \
-        GitBranch=${GIT_BRANCH}
+        GitBranch=${GIT_BRANCH} \
+        LambdaMemory=10240 \
+        LambdaTimeout=900 \
+        InstanceType=t3.large
 
