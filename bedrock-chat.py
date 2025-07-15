@@ -83,10 +83,8 @@ with open('config.json','r',encoding='utf-8') as f:
 with open('pricing.json','r',encoding='utf-8') as f:
     pricing_file = json.load(f)
 
+
 # Configuration constants
-S3 = boto3.client('s3')
-DYNAMODB  = boto3.resource('dynamodb')
-COGNITO = boto3.client('cognito-idp')
 LOCAL_CHAT_FILE_NAME = "chat-history.json"
 DYNAMODB_TABLE=config_file["DynamodbTable"]
 DYNAMODB_FLG=config_file["useDynamoDB"]
@@ -104,6 +102,10 @@ INPUT_BUCKET=config_file["input_bucket"]
 INPUT_S3_PATH=config_file["input_s3_path"]
 INPUT_EXT=tuple(f".{x}" for x in config_file["input_file_ext"].split(','))
 
+# AWS clients and resources (after region is defined)
+S3 = boto3.client('s3', region_name=REGION)
+DYNAMODB  = boto3.resource('dynamodb', region_name=REGION)
+COGNITO = boto3.client('cognito-idp', region_name=REGION)
 bedrock_runtime = boto3.client(service_name='bedrock-runtime',region_name=REGION,config=config)
 
 if 'messages' not in st.session_state:
@@ -130,7 +132,7 @@ def get_object_with_retry(bucket, key):
     retries = 0   
     backoff_base = 2
     max_backoff = 3  # Maximum backoff time in seconds
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     while retries < max_retries:
         try:
             response = s3.get_object(Bucket=bucket, Key=key)
@@ -272,7 +274,7 @@ class InvalidContentError(Exception):
 
 def detect_encoding(s3_uri):
     """detect csv encoding"""
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     match = re.match("s3://(.+?)/(.+)", s3_uri)
     if match:
         bucket_name = match.group(1)
@@ -458,7 +460,7 @@ def exract_pdf_text_aws(file):
             S3.put_object(Body=document.get_text(config=config), Bucket=BUCKET, Key=f"{TEXTRACT_RESULT_CACHE_PATH}/{file_base_name}.txt") 
             return document.get_text(config=config)
     else:
-        s3=boto3.resource("s3")
+        s3=boto3.resource("s3", region_name=REGION)
         match = re.match("s3://(.+?)/(.+)", file)
         if match:
             bucket_name = match.group(1)
@@ -491,7 +493,7 @@ def strip_newline(cell):
 
 def table_parser_openpyxl(file, cutoff):
     # Read from S3
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     match = re.match("s3://(.+?)/(.+)", file)
     if match:
         bucket_name = match.group(1)
@@ -532,7 +534,7 @@ def table_parser_openpyxl(file, cutoff):
 
 def calamaine_excel_engine(file,cutoff):
     # # Read from S3
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     match = re.match("s3://(.+?)/(.+)", file)
     if match:
         bucket_name = match.group(1)
@@ -599,7 +601,7 @@ def get_chat_history_db(params,cutoff,claude3):
             if d['image'] and claude3 and LOAD_DOC_IN_ALL_CHAT_CONVO:
                 content=[]
                 for img in d['image']:
-                    s3 = boto3.client('s3')
+                    s3 = boto3.client('s3', region_name=REGION)
                     match = re.match("s3://(.+?)/(.+)", img)
                     image_name=os.path.basename(img)
                     _,ext=os.path.splitext(image_name)
@@ -648,7 +650,7 @@ def get_chat_history_db(params,cutoff,claude3):
   
 def get_s3_keys(prefix):
     """list all keys in an s3 path"""
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     keys = []
     next_token = None
     
@@ -701,8 +703,13 @@ def parse_s3_uri(uri):
 def copy_s3_object(source_uri, dest_bucket, dest_key):
     """
     Copy an object from one S3 location to another.
+
+    :param source_uri: S3 URI of the source object
+    :param dest_bucket: Name of the destination bucket
+    :param dest_key: Key to be used for the destination object
+    :return: S3 URI of the copied object
     """
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
 
     # Parse the source URI
     source_bucket, source_key = parse_s3_uri(source_uri)
@@ -711,74 +718,32 @@ def copy_s3_object(source_uri, dest_bucket, dest_key):
         return False
 
     try:
-        # Create a copy source dictionary with proper formatting
+        # Create a copy source dictionary
         copy_source = {
             'Bucket': source_bucket,
             'Key': source_key
         }
 
-        # Add detailed logging
-        logger.info(f"S3 COPY - Source: s3://{source_bucket}/{source_key}")
-        logger.info(f"S3 COPY - Destination: s3://{dest_bucket}/{dest_key}/{source_key}")
-        
-        # Check if source file exists
-        try:
-            s3.head_object(Bucket=source_bucket, Key=source_key)
-            logger.info(f"S3 COPY - Source file exists")
-        except Exception as e:
-            logger.error(f"S3 COPY - Source file does not exist: {str(e)}")
-            raise e
+        # Extract only the filename from the source key to avoid path duplication
+        filename = os.path.basename(source_key)
+        dest_full_key = f"{dest_key}/{filename}"
 
-        # Always preserve the complete directory structure
-        dest_full_key = f"{dest_key}/{source_key}"
-        
-        # Add detailed logging
-        logger.info(f"S3 COPY - Source: s3://{source_bucket}/{source_key}")
-        logger.info(f"S3 COPY - Destination: s3://{dest_bucket}/{dest_full_key}")
-            
+        logger.info(f"Copying file from s3://{source_bucket}/{source_key} to s3://{dest_bucket}/{dest_full_key}")
+
         # Copy the object
-        try:
-            response = s3.copy_object(
-                CopySource=copy_source,
-                Bucket=dest_bucket,
-                Key=dest_full_key
-            )
-            logger.info(f"S3 COPY - Copy operation successful")
-        except Exception as e:
-            logger.error(f"S3 COPY - Copy operation failed: {str(e)}")
-            raise e
+        s3.copy_object(CopySource=copy_source, Bucket=dest_bucket, Key=dest_full_key)
 
         logger.info(f"File copied successfully from {source_uri} to s3://{dest_bucket}/{dest_full_key}")
         return f"s3://{dest_bucket}/{dest_full_key}"
 
     except ClientError as e:
-        error_code = e.response['Error']['Code']
-        error_message = e.response['Error']['Message']
-        logger.error(f"Error copying object: {error_code} - {error_message}")
-        
-        if error_code == 'NoSuchKey':
-            logger.error(f"The source file does not exist: {source_uri}")
-        elif error_code == 'NoSuchBucket':
-            logger.error(f"One of the buckets does not exist: {source_bucket} or {dest_bucket}")
-        elif error_code == 'AccessDenied':
-            logger.error("Access denied. Check IAM permissions for both source and destination buckets")
-        
-        raise e
-        
-        if error_code == 'NoSuchKey':
-            print(f"The source file does not exist: {source_uri}")
-        elif error_code == 'NoSuchBucket':
-            print(f"One of the buckets does not exist: {source_bucket} or {dest_bucket}")
-        elif error_code == 'AccessDenied':
-            print("Access denied. Check IAM permissions for both source and destination buckets")
-        
-        raise e
-
+        logger.error(f"An error occurred: {e}")
+        raise(e)
 
 
 def get_s3_obj_from_bucket_(file):
     """Get an object from S3 bucket"""
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     match = re.match("s3://(.+?)/(.+)", file)
     if match:
         bucket_name = match.group(1)
@@ -953,7 +918,7 @@ def list_csv_xlsx_in_s3_folder(bucket_name, folder_path):
     :param folder_path: Path to the folder in the S3 bucket
     :return: List of CSV and XLSX file names in the folder
     """
-    s3 = boto3.client('s3')
+    s3 = boto3.client('s3', region_name=REGION)
     csv_xlsx_files = []
 
     try:
