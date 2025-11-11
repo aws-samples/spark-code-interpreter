@@ -1,0 +1,13 @@
+# Ray Cluster Python Packages
+# These packages are installed on the Ray ECS cluster at startup
+
+# Data processing
+awswrangler>=3.0.0
+pyarrow>=10.0.0
+pyathena>=3.0.0
+
+# Machine learning
+torch
+torchvision
+numpy
+filelock

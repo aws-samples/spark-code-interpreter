@@ -1,0 +1,365 @@
+"""Supervisor Agent Runtime - Orchestrates Code Generation Agent + MCP Gateway validation with proper auth"""
+
+import os
+import json
+import time
+import boto3
+import requests
+from strands import Agent, tool
+from strands.models import BedrockModel
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
+from datetime import datetime, timezone
+
+os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+app = BedrockAgentCoreApp()
+
+# Configuration
+GATEWAY_URL = 'https://ray-validation-gateway-e9r35gofyj.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp'
+CODE_GEN_AGENT_ARN = 'arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/ray_code_interpreter-oTKmLH9IB9'
+
+def make_signed_mcp_request(payload):
+    """Make signed request to MCP Gateway"""
+    session = boto3.Session()
+    credentials = session.get_credentials()
+    
+    request = AWSRequest(
+        method='POST',
+        url=GATEWAY_URL,
+        data=json.dumps(payload),
+        headers={
+            'Content-Type': 'application/json',
+            'X-Amz-Date': datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        }
+    )
+    
+    SigV4Auth(credentials, 'bedrock-agentcore', 'us-east-1').add_auth(request)
+    
+    response = requests.post(
+        GATEWAY_URL,
+        data=request.body,
+        headers=dict(request.headers),
+        timeout=30
+    )
+    
+    return response
+
+@tool
+def validate_ray_code(code: str) -> str:
+    """Validate Ray code using MCP Gateway"""
+    if code.startswith("AGENT_ERROR:") or code.startswith("EXTRACTION_ERROR:"):
+        return f"VALIDATION_SKIPPED: {code}"
+    
+    try:
+        # Initialize MCP
+        init_request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "clientInfo": {"name": "supervisor-agent", "version": "1.0.0"}
+            }
+        }
+        
+        response = make_signed_mcp_request(init_request)
+        if response.status_code != 200:
+            return f"VALIDATION_ERROR: MCP initialization failed: {response.status_code}"
+        
+        # Call validation tool
+        tool_request = {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "ray-code-validation-inline___validate_ray_code",
+                "arguments": {
+                    "code": code,
+                    "ray_cluster_ip": "172.31.4.12"
+                }
+            }
+        }
+        
+        print(f"MCP Tool Request: {json.dumps(tool_request)}")
+        
+        response = make_signed_mcp_request(tool_request)
+        print(f"MCP Response Status: {response.status_code}")
+        print(f"MCP Response Text: {response.text}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            print(f"MCP Response JSON: {json.dumps(result, indent=2)}")
+            
+            if 'result' in result and 'content' in result['result']:
+                content = result['result']['content'][0]['text']
+                print(f"MCP Gateway response content: {content}")
+                
+                # Check if it's the generic error message
+                if content == "An internal error occurred. Please retry later.":
+                    return f"VALIDATION_ERROR: MCP Gateway internal error - lambda may have failed"
+                
+                try:
+                    validation_data = json.loads(content)
+                    if validation_data.get('success'):
+                        return f"✅ VALIDATED: Job {validation_data.get('job_id')} {validation_data.get('status')}"
+                    else:
+                        return f"❌ VALIDATION_FAILED: {validation_data.get('error', content)}"
+                except json.JSONDecodeError:
+                    return f"VALIDATION_ERROR: Invalid JSON response: {content}"
+            return f"VALIDATION_ERROR: Unexpected response structure: {result}"
+        else:
+            return f"VALIDATION_ERROR: Tool call failed: {response.status_code} - {response.text}"
+            
+    except Exception as e:
+        return f"VALIDATION_ERROR: {e}"
+
+@tool
+def execute_ray_code(code: str) -> str:
+    """Execute Ray code and return output using MCP Gateway"""
+    try:
+        # Initialize MCP
+        init_request = {
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {"tools": {}},
+                "clientInfo": {"name": "supervisor-agent", "version": "1.0.0"}
+            }
+        }
+        
+        response = make_signed_mcp_request(init_request)
+        if response.status_code != 200:
+            return f"EXECUTION_ERROR: MCP initialization failed: {response.status_code}"
+        
+        # Call execution tool
+        tool_request = {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "ray-code-execution-inline___execute_ray_code",
+                "arguments": {
+                    "code": code,
+                    "ray_cluster_ip": "172.31.4.12"
+                }
+            }
+        }
+        
+        print(f"MCP Execution Request: {json.dumps(tool_request)}")
+        
+        response = make_signed_mcp_request(tool_request)
+        print(f"MCP Execution Response Status: {response.status_code}")
+        
+        if response.status_code == 200:
+            result = response.json()
+            
+            if 'result' in result and 'content' in result['result']:
+                content = result['result']['content'][0]['text']
+                return content
+            return f"EXECUTION_ERROR: Unexpected response structure: {result}"
+        else:
+            return f"EXECUTION_ERROR: Tool call failed: {response.status_code} - {response.text}"
+            
+    except Exception as e:
+        return f"EXECUTION_ERROR: {e}"
+                    return f"VALIDATION_ERROR: MCP Gateway internal error - lambda may have failed"
+                
+                try:
+                    validation_data = json.loads(content)
+                    if validation_data.get('success'):
+                        return f"✅ VALIDATED: Job {validation_data.get('job_id')} {validation_data.get('status')}"
+                    else:
+                        return f"❌ VALIDATION_FAILED: {validation_data.get('error', content)}"
+                except json.JSONDecodeError:
+                    return f"VALIDATION_ERROR: Invalid JSON response: {content}"
+            return f"VALIDATION_ERROR: Unexpected response structure: {result}"
+        else:
+            return f"VALIDATION_ERROR: Tool call failed: {response.status_code} - {response.text}"
+            
+    except Exception as e:
+        return f"VALIDATION_ERROR: {e}"
+
+@tool
+def call_code_generation_agent(prompt: str, session_id: str) -> str:
+    """Call Code Generation Agent Runtime using boto3"""
+    agentcore_client = boto3.client(
+        'bedrock-agentcore', 
+        region_name='us-east-1',
+        config=boto3.session.Config(read_timeout=45, connect_timeout=10)
+    )
+    
+    ray_system_prompt = """You are a Ray distributed computing code generation specialist.
+
+WORKFLOW:
+1. Extract data sources from the prompt (CSV files and Glue tables)
+2. Generate Ray code based on the user request and available data sources
+3. Return ONLY the Python code without explanations
+
+RAY CODE REQUIREMENTS:
+- Always start with: import ray; ray.init()
+- Use @ray.remote decorator for distributed functions
+- For CSV files: ray.data.read_csv("s3://exact-path-from-prompt")
+- For Glue tables: ray.data.read_sql("SELECT * FROM database.table", connection_uri="awsathena://")
+- Use .map(lambda x: {...}) for transformations (return dict)
+- Use .filter(lambda x: condition) for filtering
+- Use .take_all() to get results
+- Use ray.get() for remote function results
+- Include print() statements for output
+- NEVER use pandas
+
+GLUE TABLE READING:
+When prompt mentions Glue table "database.table":
+```python
+ds = ray.data.read_sql("SELECT * FROM database.table", connection_uri="awsathena://")
+```
+
+CSV FILE READING:
+When prompt mentions CSV at "s3://bucket/path/file.csv":
+```python
+ds = ray.data.read_csv("s3://bucket/path/file.csv")
+```
+
+RETURN FORMAT:
+Return ONLY executable Python code (no markdown, no explanations)."""
+    
+    try:
+        response = agentcore_client.invoke_agent_runtime(
+            agentRuntimeArn=CODE_GEN_AGENT_ARN,
+            qualifier="DEFAULT",
+            runtimeSessionId=session_id,
+            payload=json.dumps({
+                "prompt": prompt,
+                "system_prompt": ray_system_prompt
+            })
+        )
+        
+        response_body = response["response"].read()
+        if response_body:
+            try:
+                result = json.loads(response_body.decode("utf-8"))
+                return str(result) if not isinstance(result, str) else result
+            except json.JSONDecodeError:
+                return response_body.decode("utf-8")
+        return "AGENT_ERROR: No response from code generation agent"
+    except Exception as e:
+        error_msg = str(e)
+        if "timeout" in error_msg.lower() or "throttling" in error_msg.lower():
+            return f"AGENT_ERROR: Code generation agent unavailable - {error_msg}"
+        return f"AGENT_ERROR: Code generation failed - {error_msg}"
+
+@tool
+def extract_ray_code(response_text: str) -> str:
+    """Extract Ray code from agent response"""
+    import re
+    
+    # Check for agent errors first
+    if response_text.startswith("AGENT_ERROR:"):
+        return response_text  # Pass through error
+    
+    # Look for code blocks
+    code_block_match = re.search(r'```python\n(.*?)\n```', response_text, re.DOTALL)
+    if code_block_match:
+        return code_block_match.group(1).strip()
+    
+    # Look for import ray statements
+    lines = response_text.split('\n')
+    code_lines = []
+    in_code = False
+    
+    for line in lines:
+        if 'import ray' in line:
+            in_code = True
+        if in_code and line.strip():
+            code_lines.append(line)
+    
+    extracted_code = '\n'.join(code_lines) if code_lines else ""
+    
+    # If no code found, return error
+    if not extracted_code or len(extracted_code.strip()) < 10:
+        return f"EXTRACTION_ERROR: No valid Ray code found in response: {response_text[:200]}..."
+    
+    return extracted_code
+
+def create_supervisor_agent():
+    """Create supervisor agent that orchestrates code generation and validation"""
+    model = BedrockModel(model_id='us.amazon.nova-premier-v1:0')
+    
+    agent = Agent(
+        model=model,
+        system_prompt="""You handle two types of requests:
+
+TYPE 1: EXECUTE_ONLY (when prompt starts with "EXECUTE_ONLY:")
+- Extract the code from the prompt
+- Call execute_ray_code(code) ONCE
+- Return the execution output directly
+
+TYPE 2: GENERATE AND VALIDATE (all other prompts)
+- Iterate up to 5 times to get validated Ray code
+- STEP 1: Call call_code_generation_agent(prompt, session_id)
+- STEP 2: Call extract_ray_code(response)
+- STEP 3: Call validate_ray_code(code)
+- STEP 4: Check validation result:
+  * If "✅ VALIDATED" → STOP and return the code
+  * If "❌ VALIDATION_FAILED" or "VALIDATION_ERROR" → GO TO STEP 5
+  * If "AGENT_ERROR" or "EXTRACTION_ERROR" → GO TO STEP 5
+- STEP 5: Retry with error feedback (max 5 attempts total)
+  * Modify prompt: "Previous attempt failed: [error]. Fix and regenerate."
+  * GO BACK TO STEP 1
+
+CRITICAL RULES:
+- For EXECUTE_ONLY: Call execute_ray_code() and return output
+- For generation: MUST attempt validation at least once
+- MUST retry up to 5 times if validation fails
+- ONLY stop early if you see "✅ VALIDATED"
+- After 5 failed attempts, return: "ERROR: Failed after 5 attempts: [last error]"
+- Session ID format: supervisor-<uuid>
+
+RETURN FORMAT:
+- Execution: Return the execution output only
+- Success: Return the validated Python code only
+- Failure: Return "ERROR: Failed after 5 attempts: [details]" """,
+        tools=[call_code_generation_agent, extract_ray_code, validate_ray_code, execute_ray_code],
+        name="SupervisorAgent"
+    )
+    
+    return agent
+
+@app.entrypoint
+def invoke(payload):
+    """Main entrypoint for Supervisor Agent runtime"""
+    try:
+        prompt = payload.get("prompt", "")
+        # Generate proper session ID with required 33+ characters
+        import uuid
+        session_id = f"supervisor-{uuid.uuid4().hex}"  # 43 characters
+        
+        print(f"🚀 Supervisor Agent processing: {prompt}")
+        
+        # Create supervisor agent
+        agent = create_supervisor_agent()
+        
+        # Invoke agent
+        response = agent(f"Generate and validate Ray code: {prompt}")
+        
+        # Extract text content
+        if hasattr(response, 'message') and hasattr(response.message, 'content'):
+            content_text = ""
+            for block in response.message.content:
+                if hasattr(block, 'text'):
+                    content_text += block.text
+            return content_text
+        elif hasattr(response, 'content'):
+            return response.content
+        else:
+            return str(response)
+            
+    except Exception as e:
+        print(f"❌ Supervisor Agent error: {e}")
+        return f"Supervisor Agent error: {e}"
+
+if __name__ == "__main__":
+    app.run()
