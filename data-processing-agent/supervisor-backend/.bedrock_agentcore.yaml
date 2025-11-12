@@ -1,0 +1,38 @@
+default_agent: supervisor_agent
+agents:
+  supervisor_agent:
+    name: supervisor_agent
+    entrypoint: /Users/nmurich/strands-agents/agent-core/ray-code-interpreter-agent/supervisor-backend/supervisor_agents.py
+    platform: linux/arm64
+    container_runtime: none
+    aws:
+      execution_role: arn:aws:iam::260005718447:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-5130eca7b1
+      execution_role_auto_create: false
+      account: '260005718447'
+      region: us-east-1
+      ecr_repository: 260005718447.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-supervisor_agent
+      ecr_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+    bedrock_agentcore:
+      agent_id: supervisor_agent-caFwzSALky
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/supervisor_agent-caFwzSALky
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-supervisor_agent-builder
+      execution_role: arn:aws:iam::260005718447:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-5130eca7b1
+      source_bucket: bedrock-agentcore-codebuild-sources-260005718447-us-east-1
+    memory:
+      mode: STM_ONLY
+      memory_id: supervisor_agent_mem-vyYI5KCbIf
+      memory_arn: arn:aws:bedrock-agentcore:us-east-1:260005718447:memory/supervisor_agent_mem-vyYI5KCbIf
+      memory_name: supervisor_agent_mem
+      event_expiry_days: 30
+      first_invoke_memory_check_done: false
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null

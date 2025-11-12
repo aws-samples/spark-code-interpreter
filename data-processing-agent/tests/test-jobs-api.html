@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Ray Jobs API</title>
+</head>
+<body>
+    <h1>Ray Jobs API Test</h1>
+    <button onclick="loadJobs()">Load Jobs</button>
+    <div id="result"></div>
+    
+    <script>
+        async function loadJobs() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Loading...';
+            
+            try {
+                const response = await fetch('http://localhost:8000/ray/jobs');
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <h2>Success: ${data.success}</h2>
+                    <h3>Jobs Count: ${data.jobs ? data.jobs.length : 0}</h3>
+                    <pre>${JSON.stringify(data.jobs ? data.jobs.slice(0, 3) : [], null, 2)}</pre>
+                `;
+            } catch (err) {
+                resultDiv.innerHTML = `<h2 style="color: red;">Error: ${err.message}</h2>`;
+            }
+        }
+        
+        // Auto-load on page load
+        loadJobs();
+    </script>
+</body>
+</html>
