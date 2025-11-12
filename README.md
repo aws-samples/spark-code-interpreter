@@ -110,104 +110,273 @@ To customize the chatbot’s behavior, follow these configuration instructions:
   "bedrock_region": "us-east-1"
 }
 ```
-## Deploy and run Streamlit App on AWS EC2 (I tested this on the Ubuntu Image)
+# Quick Start Guide - Ray + Spark Platform
 
+## 🚀 **5-Minute Quick Start**
 
-## Option 1
-For one click deployment clone the repository, update the config.json files and run the deploy.sh. This  script automates building and pushing a Docker image to AWS ECR using configuration values from a config JSON file, then deploys an AWS SAM application with those parameters. Finally, it deploys a Spark code interpreter and Chatbot CloudFormation stack with all required parameters, streamlining the CI/CD process for a Spark-on-Lambda application. Config.json is the driver for deploy.sh. Please update the config.json before deploying the script.
-**Note** : This feature is still being tested , so please provide us a feedback
-
-###  Clone this git repo
-```
-git clone [github_link]
-```
-###  Run the deploy.sh 
-
-```sh deploy.sh```
-
-## Option 2 
-
-## 1. Create an EC2 Instance  
-
-[➡️ AWS Guide: Create an EC2 Instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EC2_GetStarted.html)  
-
-## 2. Configure Security Group (Expose Required Ports)  
-
-Since **Streamlit** runs on **TCP port 8501**, you must allow inbound traffic.  
-
-### Steps:  
-1. In the **AWS EC2 Console**, navigate to **Security Groups**.  
-2. Select the **Security Group** attached to your EC2 instance.  
-3. Click **Edit inbound rules** and add the following
- <img src="images/sg-rules.PNG" width="600"/>
- 
-## 3. Attach the Instance Profile Role  
-
-Ensure the **EC2 instance profile role** has the required **IAM permissions** to access AWS services used in this application.  
-
-[➡️ AWS Guide: Assign an Instance Profile Role](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html)  
-
-## 4. Connect to Your EC2 Instance  
-
-[➡️ AWS Guide: Connect to Your EC2 Instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/AccessingInstances.html)  
-
-Run the following command to connect via SSH:  
-
+### **1. Prerequisites Check**
 ```bash
-ssh -i your-key.pem ubuntu@your-ec2-public-ip
-```
-## 5 Connect to Your EC2 Instance  
-* Run the appropiate commands to update the ec2 instance.
-```
-sudo apt update
-sudo apt upgrade
-```
-## 6. Clone this git repo
-```
-git clone [github_link]
+cd terraform-ray-infrastructure
+./validate-prerequisites.sh
 ```
 
-## 7. Install Python3 and Pip
+**If any checks fail**, refer to [`PREREQUISITES.md`](./PREREQUISITES.md) for detailed setup.
 
-If Python3 and Pip are not already installed, run the following command:
-
-```sh
-sudo apt install python3 python3-pip -y
+### **2. Configure Deployment**
+```bash
+cp terraform.tfvars.example terraform.tfvars
 ```
-## 8. Install Tesseract-OCR for PDF and Image Processing
 
-If you decide to use Python libraries for PDF and image processing, you need to install **Tesseract-OCR**. Run the appropriate command based on your operating system:
+**Minimal required changes in `terraform.tfvars`:**
+```hcl
+# Set your AWS region
+aws_region = "us-east-1"
 
-### 9. For CentOS or Amazon Linux:
+# Set environment name
+environment = "dev"
 
-```sh
-sudo rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-sudo yum -y update
-sudo yum install -y tesseract
+# IMPORTANT: Set your IP address for security
+allowed_cidr_blocks = ["YOUR.IP.ADDRESS/32"]
 ```
-## 10. Install Dependencies and Run the Streamlit App
 
-### Install Dependencies
-
-Run the following command to install the required dependencies:
-
-```sh
-sudo pip install -r req.txt --upgrade
+**Get your IP:**
+```bash
+curl -s https://checkip.amazonaws.com
+# Example: 203.0.113.45
+# Use: ["203.0.113.45/32"]
 ```
-## 11. Run the Streamlit App in a `tmux` Session
-### Start a `tmux` Session and Launch the Streamlit App
-* tmux allows your Streamlit app to keep running even after you disconnect from the SSH session, ensuring uninterrupted execution.
-* Run command
-*    ```tmux new -s mysession``` to create a new session.
-* Then in the new session created `cd` into the **ChatBot** dir and run below to start the stream lit app. This allows you to run the Streamlit application in the background and keep it running even if you disconnect from the terminal session.
-  ```python3 -m streamlit run bedrock-chat.py
-  ```
-* Copy the **External URL** link generated and paste in a new browser tab.
 
-  
-* **⚠ NOTE:** The generated link is not secure! For [additional guidance](https://github.com/aws-samples/deploy-streamlit-app). 
-To stop the `tmux` session, in your ec2 terminal Press `Ctrl+b`, then `d` to detach. to kill the session, run `tmux kill-session -t mysession`
+### **3. Deploy Infrastructure**
+```bash
+./deploy.sh
+```
 
+**Deployment takes ~15-20 minutes**
+
+### **4. Access Your Platform**
+After deployment completes:
+```bash
+# Get access URLs
+terraform output
+
+# Test the platform
+./test-suite.sh
+```
+
+---
+
+## 📋 **What Gets Deployed**
+
+### **Compute Infrastructure**
+- **EKS Cluster**: Kubernetes cluster for Ray distributed computing
+- **ECS Fargate**: Serverless containers for React + FastAPI
+- **Lambda Functions**: Spark on Lambda for small datasets
+- **EMR Serverless**: Auto-scaling Spark for large datasets
+
+### **Data & Storage**
+- **S3 Buckets**: Data lake for both Spark and Ray workloads
+- **DynamoDB**: Chat history and session storage
+- **AWS Glue**: Data catalog and metadata management
+
+### **AI/ML Integration**
+- **Bedrock AgentCore**: AI agents for code generation
+- **MCP Gateway**: Model-Computer Protocol for validation
+- **Claude Sonnet 4**: Advanced code generation AI
+
+### **Networking & Security**
+- **VPC with Public/Private Subnets**: Secure network architecture
+- **Application Load Balancer**: High-availability load balancing
+- **Security Groups**: Least-privilege access control
+- **NAT Gateways**: Secure outbound internet access
+
+---
+
+## 🎯 **Access Points After Deployment**
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| **React App** | `http://your-alb-url.amazonaws.com` | Main user interface |
+| **FastAPI Backend** | `http://your-alb-url.amazonaws.com/api` | Unified Spark/Ray API |
+| **Ray Dashboard** | `http://ray-public-ip:8265` | Ray cluster monitoring |
+| **EKS Dashboard** | Via kubectl port-forward | Kubernetes management |
+
+---
+
+## 💰 **Cost Estimate**
+
+| Environment | Monthly Cost | Resources |
+|-------------|--------------|-----------|
+| **Development** | $273-400 | Minimal resources, spot instances |
+| **Staging** | $350-500 | Moderate resources, mixed instances |
+| **Production** | $400-643 | Full redundancy, on-demand instances |
+
+**Cost optimization tips:**
+- Use `enable_spot_instances = true` for dev/staging
+- Set `log_retention_days = 7` for development
+- Adjust `eks_node_desired_size` based on usage
+
+---
+
+## 🔧 **Common Configurations**
+
+### **Development Environment**
+```hcl
+environment = "dev"
+eks_node_desired_size = 1
+eks_node_max_size = 3
+ray_worker_max_replicas = 2
+enable_spot_instances = true
+log_retention_days = 7
+```
+
+### **Production Environment**
+```hcl
+environment = "prod"
+eks_node_desired_size = 3
+eks_node_max_size = 10
+ray_worker_max_replicas = 8
+enable_spot_instances = false
+log_retention_days = 30
+domain_name = "ray.yourcompany.com"
+```
+
+---
+
+## 🧪 **Testing Your Deployment**
+
+### **Quick Health Check**
+```bash
+# Backend API
+curl http://your-alb-url/health
+
+# Ray status
+curl http://your-alb-url/api/ray/status
+
+# Spark status
+curl http://your-alb-url/api/spark/status
+```
+
+### **Complete Test Suite**
+```bash
+./test-suite.sh all
+```
+
+### **Manual Testing**
+1. **Open React App**: Navigate to your application URL
+2. **Submit Ray Job**: Test distributed computing workload
+3. **Submit Spark Job**: Test data processing (small file → Lambda, large file → EMR)
+4. **Check Ray Dashboard**: Monitor cluster performance
+
+---
+
+## 🆘 **Troubleshooting**
+
+### **Deployment Failed**
+```bash
+# Check Terraform state
+terraform show
+
+# View detailed error logs
+terraform apply -auto-approve -detailed-exitcode
+
+# For specific component failures
+terraform apply -target=module.eks
+```
+
+### **Application Not Accessible**
+```bash
+# Check ALB health
+aws elbv2 describe-target-health --target-group-arn $(terraform output -raw alb_target_group_arn)
+
+# Check ECS service status
+aws ecs describe-services --cluster $(terraform output -raw ecs_cluster_name) --services ray-backend
+```
+
+### **Ray Cluster Issues**
+```bash
+# Configure kubectl
+aws eks update-kubeconfig --region $(terraform output -raw aws_region) --name $(terraform output -raw eks_cluster_id)
+
+# Check Ray pods
+kubectl get pods -n ray-system
+
+# View Ray logs
+kubectl logs -n ray-system -l app=ray-head
+```
+
+---
+
+## 🔄 **Updates & Maintenance**
+
+### **Update Application Code**
+```bash
+# Rebuild and push new images
+./deploy.sh
+
+# Or update specific services
+terraform apply -target=module.ecs
+```
+
+### **Scale Resources**
+```bash
+# Edit terraform.tfvars
+ray_worker_max_replicas = 10
+eks_node_max_size = 15
+
+# Apply changes
+terraform apply
+```
+
+### **Backup Important Data**
+```bash
+# Backup S3 data
+aws s3 sync s3://$(terraform output -raw s3_data_bucket_name) ./backup/
+
+# Export DynamoDB
+aws dynamodb scan --table-name $(terraform output -raw dynamodb_table_name) > backup/chat-history.json
+```
+
+---
+
+## 🧹 **Cleanup**
+
+### **Destroy Everything**
+```bash
+./deploy.sh destroy
+```
+
+### **Selective Cleanup**
+```bash
+# Remove only EKS cluster
+terraform destroy -target=module.eks
+
+# Remove only Ray cluster
+terraform destroy -target=module.ray_cluster
+```
+
+---
+
+## 📚 **Additional Documentation**
+
+- [`PREREQUISITES.md`](./PREREQUISITES.md) - Detailed dependency setup
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) - System architecture overview
+- [`DEPLOYMENT-CHECKLIST.md`](./DEPLOYMENT-CHECKLIST.md) - Step-by-step deployment guide
+- [`README.md`](./README.md) - Comprehensive documentation
+
+---
+
+## 🎉 **Success!**
+
+Once deployed, you'll have a **production-grade, unified Spark + Ray platform** that can:
+
+✅ **Process small datasets** in real-time with Spark on Lambda
+✅ **Handle big data** with auto-scaling EMR Serverless
+✅ **Run distributed ML/AI** workloads on Ray cluster
+✅ **Provide modern React interface** for natural language queries
+✅ **Scale automatically** based on demand
+✅ **Integrate with AWS services** seamlessly
+
+**Ready to revolutionize your data processing workflows!** 🚀
 ## Future Road Map
 We have below items on future roadmap
 * In case of a larger dataset, use subset of the dataset to provide realtime results back to the user.
