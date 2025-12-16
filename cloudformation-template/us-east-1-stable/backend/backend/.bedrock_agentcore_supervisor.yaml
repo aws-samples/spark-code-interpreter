@@ -1,0 +1,39 @@
+default_agent: supervisor_agent
+agents:
+  supervisor_agent:
+    name: supervisor_agent
+    entrypoint: supervisor_agents.py
+    requirements: requirements_supervisor.txt
+    platform: linux/arm64
+    container_runtime: none
+    aws:
+      execution_role: arn:aws:iam::025523569182:role/SharedAgentCoreExecutionRole
+      execution_role_auto_create: false
+      account: '025523569182'
+      region: us-east-1
+      ecr_repository: null
+      ecr_auto_create: true
+      network_configuration:
+        network_mode: PUBLIC
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+    bedrock_agentcore:
+      agent_id: null
+      agent_arn: null
+      agent_session_id: null
+    codebuild:
+      project_name: null
+      execution_role: null
+      source_bucket: null
+    memory:
+      mode: STM_ONLY
+      memory_id: null
+      memory_arn: null
+      memory_name: supervisor_agent_mem
+      event_expiry_days: 30
+      first_invoke_memory_check_done: false
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null
