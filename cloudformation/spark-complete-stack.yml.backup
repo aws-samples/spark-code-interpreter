@@ -1,0 +1,486 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Complete Spark Code Interpreter Stack - Stable us-east-1 Deployment'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+    Description: Environment name
+  
+  BedrockModel:
+    Type: String
+    Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    Description: Bedrock model ID for agents
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for EMR and Lambda
+  
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Private subnet IDs for EMR (minimum 2)
+  
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnet IDs for ALB (minimum 2)
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Environment Configuration
+        Parameters:
+          - Environment
+          - BedrockModel
+      - Label:
+          default: Network Configuration
+        Parameters:
+          - VpcId
+          - PrivateSubnetIds
+          - PublicSubnetIds
+
+Resources:
+  # ============================================================================
+  # Cognito User Pool for JWT Authentication
+  # ============================================================================
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${Environment}-spark-gateway-users'
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate:
+          - email
+      UserPoolTags:
+        Environment: !Ref Environment
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub '${Environment}-spark-gateway-client'
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub '${Environment}-spark-gateway-${AWS::AccountId}'
+      UserPoolId: !Ref CognitoUserPool
+
+  # ============================================================================
+  # S3 Bucket for Spark Data
+  # ============================================================================
+  SparkDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'spark-data-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldOutputs
+            Status: Enabled
+            ExpirationInDays: 30
+            Prefix: output/
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: 7
+            Prefix: logs/
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: SparkData
+
+  # ============================================================================
+  # IAM Roles
+  # ============================================================================
+  
+  # Lambda Execution Role
+  SparkLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-spark-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: SparkLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt SparkDataBucket.Arn
+                  - !Sub '${SparkDataBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetTable
+                  - glue:GetPartitions
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # EMR Serverless Execution Role
+  EMRExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-spark-emr-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: emr-serverless.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EMRExecutionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt SparkDataBucket.Arn
+                  - !Sub '${SparkDataBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetTable
+                  - glue:GetPartitions
+                  - glue:CreateTable
+                  - glue:UpdateTable
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # AgentCore Runtime Role
+  AgentCoreRuntimeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'AmazonBedrockAgentCoreSDKRuntime-${AWS::Region}-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+      Policies:
+        - PolicyName: AgentCoreRuntimePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt SparkOnLambda.Arn
+              - Effect: Allow
+                Action:
+                  - emr-serverless:StartJobRun
+                  - emr-serverless:GetJobRun
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt SparkDataBucket.Arn
+                  - !Sub '${SparkDataBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetTable
+                  - glue:GetPartitions
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # ============================================================================
+  # AgentCore Gateway with MCP Support
+  # ============================================================================
+  
+  # Gateway IAM Role
+  GatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-spark-gateway-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+      Policies:
+        - PolicyName: GatewayPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock-agentcore:InvokeRuntime
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt SparkOnLambda.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+  
+  SparkAgentCoreGateway:
+    Type: AWS::BedrockAgentCore::Gateway
+    Properties:
+      Name: !Sub '${Environment}-spark-gateway'
+      Description: 'Spark Supervisor Agent Gateway with Cognito JWT and MCP support'
+      RoleArn: !GetAtt GatewayRole.Arn
+      AuthorizerType: CUSTOM_JWT
+      AuthorizerConfiguration:
+        CustomJWTAuthorizer:
+          DiscoveryUrl: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPool}/.well-known/openid-configuration'
+          AllowedAudience:
+            - !Ref CognitoUserPoolClient
+      ProtocolType: MCP
+      ProtocolConfiguration:
+        Mcp:
+          Instructions: 'Gateway for Spark code generation and execution. Use this to invoke the Spark Supervisor Agent for data processing tasks.'
+      Tags:
+        Environment: !Ref Environment
+  
+  # Note: Gateway Targets will be added separately via API or Console
+  # The Gateway provides an MCP endpoint that can be used to invoke the Spark Supervisor Agent
+  # Agent ARN: arn:aws:bedrock-agentcore:us-east-1:817323390093:runtime/spark_supervisor_agent-kSQUxI8Tqu
+  
+  # ============================================================================
+  # Lambda Functions
+  # ============================================================================
+  
+  SparkOnLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Environment}-spark-on-lambda'
+      PackageType: Image
+      Role: !GetAtt SparkLambdaRole.Arn
+      Timeout: 300
+      MemorySize: 3008
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref SparkDataBucket
+      Code:
+        ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Environment}-spark-lambda:latest'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ============================================================================
+  # EMR Serverless Application
+  # ============================================================================
+  
+  EMRSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${Environment}-spark-emr-sg'
+      GroupDescription: Security group for EMR Serverless
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+  
+  EMRServerlessApplication:
+    Type: AWS::EMRServerless::Application
+    DependsOn: EMRSecurityGroup
+    Properties:
+      Name: !Sub '${Environment}-spark-emr'
+      ReleaseLabel: emr-6.15.0
+      Type: Spark
+      MaximumCapacity:
+        Cpu: 100 vCPU
+        Memory: 200 GB
+        Disk: 400000 GB
+      AutoStartConfiguration:
+        Enabled: true
+      AutoStopConfiguration:
+        Enabled: true
+        IdleTimeoutMinutes: 15
+      NetworkConfiguration:
+        SubnetIds: !Ref PrivateSubnetIds
+        SecurityGroupIds:
+          - !Ref EMRSecurityGroup
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ============================================================================
+  # Application Load Balancer (Optional - Gateway provides its own endpoint)
+  # ============================================================================
+  # Commented out - Gateway provides its own URL endpoint
+  # Uncomment if you need a custom ALB in front of the Gateway
+
+Outputs:
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+    Export:
+      Name: !Sub '${Environment}-CognitoUserPoolId'
+  
+  CognitoUserPoolArn:
+    Description: Cognito User Pool ARN
+    Value: !GetAtt CognitoUserPool.Arn
+    Export:
+      Name: !Sub '${Environment}-CognitoUserPoolArn'
+  
+  CognitoAppClientId:
+    Description: Cognito App Client ID
+    Value: !Ref CognitoUserPoolClient
+    Export:
+      Name: !Sub '${Environment}-CognitoAppClientId'
+  
+  CognitoUserPoolDomain:
+    Description: Cognito User Pool Domain
+    Value: !Sub '${Environment}-spark-gateway-${AWS::AccountId}'
+    Export:
+      Name: !Sub '${Environment}-CognitoUserPoolDomain'
+  
+  AgentCoreGatewayId:
+    Description: AgentCore Gateway ID
+    Value: !Ref SparkAgentCoreGateway
+    Export:
+      Name: !Sub '${Environment}-AgentCoreGatewayId'
+  
+  AgentCoreGatewayArn:
+    Description: AgentCore Gateway ARN
+    Value: !GetAtt SparkAgentCoreGateway.GatewayArn
+    Export:
+      Name: !Sub '${Environment}-AgentCoreGatewayArn'
+  
+  AgentCoreGatewayUrl:
+    Description: AgentCore Gateway URL (use with MCP or direct invocation)
+    Value: !GetAtt SparkAgentCoreGateway.GatewayUrl
+    Export:
+      Name: !Sub '${Environment}-AgentCoreGatewayUrl'
+  
+  SparkDataBucketName:
+    Description: S3 bucket for Spark data
+    Value: !Ref SparkDataBucket
+    Export:
+      Name: !Sub '${Environment}-SparkDataBucket'
+  
+  SparkLambdaFunctionName:
+    Description: Spark Lambda function name
+    Value: !Ref SparkOnLambda
+    Export:
+      Name: !Sub '${Environment}-SparkLambdaFunction'
+  
+  SparkLambdaFunctionArn:
+    Description: Spark Lambda function ARN
+    Value: !GetAtt SparkOnLambda.Arn
+    Export:
+      Name: !Sub '${Environment}-SparkLambdaArn'
+  
+  EMRApplicationId:
+    Description: EMR Serverless application ID
+    Value: !Ref EMRServerlessApplication
+    Export:
+      Name: !Sub '${Environment}-EMRApplicationId'
+  
+  EMRExecutionRoleArn:
+    Description: EMR execution role ARN
+    Value: !GetAtt EMRExecutionRole.Arn
+    Export:
+      Name: !Sub '${Environment}-EMRExecutionRoleArn'
+  
+  AgentCoreRuntimeRoleArn:
+    Description: AgentCore runtime role ARN
+    Value: !GetAtt AgentCoreRuntimeRole.Arn
+    Export:
+      Name: !Sub '${Environment}-AgentCoreRuntimeRoleArn'
+

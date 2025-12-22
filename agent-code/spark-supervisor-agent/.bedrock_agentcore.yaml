@@ -1,0 +1,60 @@
+default_agent: spark_supervisor_agent
+agents:
+  spark_supervisor_agent:
+    name: spark_supervisor_agent
+    entrypoint: /Users/kamokash/Library/CloudStorage/OneDrive-amazon.com/DJA/codebase-karthik-github/cloudformation-template/us-east-1-stable-jwt/agent-code/spark-supervisor-agent/spark_supervisor_agent.py
+    deployment_type: container
+    runtime_type: null
+    platform: linux/arm64
+    container_runtime: docker
+    source_path: null
+    aws:
+      execution_role: arn:aws:iam::817323390093:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-976e96fdb5
+      execution_role_auto_create: false
+      account: '817323390093'
+      region: us-east-1
+      ecr_repository: 817323390093.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-spark_supervisor_agent
+      ecr_auto_create: false
+      s3_path: null
+      s3_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+        network_mode_config: null
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+      lifecycle_configuration:
+        idle_runtime_session_timeout: null
+        max_lifetime: null
+    bedrock_agentcore:
+      agent_id: spark_supervisor_agent-kSQUxI8Tqu
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:817323390093:runtime/spark_supervisor_agent-kSQUxI8Tqu
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-spark_supervisor_agent-builder
+      execution_role: arn:aws:iam::817323390093:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-976e96fdb5
+      source_bucket: bedrock-agentcore-codebuild-sources-817323390093-us-east-1
+    memory:
+      mode: NO_MEMORY
+      memory_id: null
+      memory_arn: null
+      memory_name: null
+      event_expiry_days: 30
+      first_invoke_memory_check_done: false
+      was_created_by_toolkit: false
+    identity:
+      credential_providers: []
+      workload: null
+    aws_jwt:
+      enabled: false
+      audiences: []
+      signing_algorithm: ES384
+      issuer_url: null
+      duration_seconds: 300
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null
+    api_key_env_var_name: null
+    api_key_credential_provider_name: null
+    is_generated_by_agentcore_create: false

@@ -1,0 +1,10 @@
+boto3
+scikit-learn
+plotly>=6.1.1
+pandas
+numpy
+seaborn
+matplotlib
+s3fs
+openpyxl
+kaleido>=1.0.0

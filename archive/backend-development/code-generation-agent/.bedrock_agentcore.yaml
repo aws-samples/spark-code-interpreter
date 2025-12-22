@@ -1,0 +1,54 @@
+default_agent: ray_code_interpreter
+agents:
+  ray_code_interpreter:
+    name: ray_code_interpreter
+    entrypoint: /Users/kamokash/Library/CloudStorage/OneDrive-amazon.com/DJA/codebase-nabeel/spark-code-interpreter/data-processing-agent/backend/code-generation-agent/agents.py
+    deployment_type: container
+    runtime_type: null
+    platform: linux/arm64
+    container_runtime: docker
+    source_path: null
+    aws:
+      execution_role: arn:aws:iam::025523569182:role/AmazonBedrockAgentCoreSDKRuntime-us-west-2-a7ee536645
+      execution_role_auto_create: false
+      account: 025523569182
+      region: us-west-2
+      ecr_repository: 025523569182.dkr.ecr.us-west-2.amazonaws.com/bedrock-agentcore-ray_code_interpreter
+      ecr_auto_create: false
+      s3_path: null
+      s3_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+        network_mode_config: null
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+      lifecycle_configuration:
+        idle_runtime_session_timeout: null
+        max_lifetime: null
+    bedrock_agentcore:
+      agent_id: ray_code_interpreter-7F7MS8FDav
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:025523569182:runtime/ray_code_interpreter-7F7MS8FDav
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-ray_code_interpreter-builder
+      execution_role: arn:aws:iam::025523569182:role/AmazonBedrockAgentCoreSDKCodeBuild-us-west-2-a7ee536645
+      source_bucket: bedrock-agentcore-codebuild-sources-025523569182-us-west-2
+    memory:
+      mode: NO_MEMORY
+      memory_id: null
+      memory_arn: null
+      memory_name: null
+      event_expiry_days: 30
+      first_invoke_memory_check_done: false
+      was_created_by_toolkit: false
+    identity:
+      credential_providers: []
+      workload: null
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null
+    api_key_env_var_name: null
+    api_key_credential_provider_name: null
+    is_generated_by_agentcore_create: false
