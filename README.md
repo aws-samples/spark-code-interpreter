@@ -51,19 +51,20 @@ Spark Code Interpreter is a **conversational analytics** solution that lets busi
    - Returns results and metrics to the UI
 
 5. **Natural Language Summary** → Bedrock summarizes results and visualizes them in Streamlit
+<img src="images/Architecture.jpeg" width="1000"/>
 
 ### Key Components
 
 | Component | Purpose | Details |
 |-----------|---------|---------|
-| **Amazon Bedrock** | LLM for code generation and conversational responses | Claude model (configurable) generates PySpark code and natural language summaries from user questions. [web:21] |
-| **AgentCore Gateway** | Unified MCP tool front door | Exposes Spark Code Interpreter tools (SoAL, EMR, and other backends) as MCP tools behind a single Gateway endpoint that agents call. [web:81][web:80] |
-| **AgentCore Runtime** | Hosting MCP servers and tools | Runs MCP servers and tools so agents can securely invoke Spark Code Interpreter and any other registered tools at runtime. [web:88] |
-| **Spark Code Interpreter (SoAL backend)** | Fast code validation and small dataset processing | Executes generated PySpark on Spark on AWS Lambda for sub‑second validation and lightweight workloads. [web:59] |
-| **Spark Code Execution (EMR Serverless backend)** | Scalable production execution of Spark jobs | Executes the same PySpark code on Amazon EMR Serverless for large‑scale analytics (MBs → PBs). [web:45] |
-| **Streamlit Web App/AWS Quicksuite** | User interface for analysts | Lets users upload datasets, ask questions, review generated code, and visualize results. [web:21] |
-| **Amazon S3** | Data and result storage | Stores input datasets, intermediate artifacts, and query results used by Spark and the tools. [web:21] |
-| **AWS Lambda** | Compute for SoAL and glue logic | Hosts the SoAL Spark runtime and any Lambda-based tools that are also surfaced via AgentCore Gateway. [web:59][web:92] |
+| **AgentCore Runtime** | Agent + tool hosting | Runs the Spark orchestrator agent and its tools (data read, code generation, Spark‑code‑interpreter, result generation) inside AgentCore. |
+| **Spark orchestrator agent** | Controls end‑to‑end workflow | Orchestrates the sequence: read data → generate PySpark → execute via Spark‑code‑interpreter tool → generate and format results. |
+| **Data read tool** | Accesses datasets | Reads data from sources like Amazon S3 / data lake and hands sampled or full datasets to the orchestrator. |
+| **Code generation tool** | Builds PySpark code | Generates or refines PySpark based on the user request and available schema/metadata. |
+| **Spark‑code‑interpreter tool** | Executes Spark code | Runs generated PySpark against Spark backends (SoAL, EMR Serverless, etc.) and returns execution results and errors. |
+| **Result generation tool** | Produces user‑friendly outputs | Aggregates Spark results and turns them into tables, charts, and natural‑language summaries. |
+| **User interface (React + FastAPI)** | Front‑end & API layer | React front‑end and FastAPI backend that collect user questions, send them to AgentCore, and render results back to users. |
+| **AWS services (S3, EMR Serverless, Lambda, CloudWatch, etc.)** | Data, compute, and observability | Provide underlying storage, Spark execution, auxiliary compute, and logging/monitoring used by the tools and agent. |
 
 
 ---
