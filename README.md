@@ -61,7 +61,7 @@ Spark Code Interpreter is a **conversational analytics** solution that lets busi
 | **Spark orchestrator agent** | Controls end‑to‑end workflow | Orchestrates the sequence: read data → generate PySpark → execute via Spark‑code‑interpreter tool → generate and format results. |
 | **Data read tool** | Accesses datasets | Reads data from sources like Amazon S3 / data lake and hands sampled or full datasets to the orchestrator. |
 | **Code generation tool** | Builds PySpark code | Generates or refines PySpark based on the user request and available schema/metadata. |
-| **Spark‑code‑interpreter tool** | Executes Spark code | Runs generated PySpark against Spark backends (SoAL, EMR Serverless, etc.) and returns execution results and errors. |
+| **Spark‑code‑interpreter tool** | Interprets Spark code | Interprets the generated code, itertively fixes the code if there are issues in generated code by Code generation tool|
 | **Result generation tool** | Produces user‑friendly outputs | Aggregates Spark results and turns them into tables, charts, and natural‑language summaries. |
 | **User interface (React + FastAPI)** | Front‑end & API layer | React front‑end and FastAPI backend that collect user questions, send them to AgentCore, and render results back to users. |
 | **AWS services (S3, EMR Serverless, Lambda, CloudWatch, etc.)** | Data, compute, and observability | Provide underlying storage, Spark execution, auxiliary compute, and logging/monitoring used by the tools and agent. |
