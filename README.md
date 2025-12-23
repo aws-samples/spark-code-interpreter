@@ -56,12 +56,15 @@ Spark Code Interpreter is a **conversational analytics** solution that lets busi
 
 | Component | Purpose | Details |
 |-----------|---------|---------|
-| **Amazon Bedrock** | LLM for code generation and conversational responses | Claude model (configurable) |
-| **Spark on AWS Lambda (SoAL)** | Fast code validation and small dataset processing | Sub-1-second latency, up to 500 MB payloads |
-| **Amazon EMR Serverless** | Scalable production execution of Spark jobs | Handles MBs to PBs, autoscaling |
-| **Streamlit Web App** | User interface for dataset selection, code review, and result visualization | Front-end for business users |
-| **Amazon S3** | Storage for datasets, scripts, and results | Central data lake |
-| **AWS Lambda** | Container host for SoAL runtime | Docker + Apache Spark + AWS SDK |
+| **Amazon Bedrock** | LLM for code generation and conversational responses | Claude model (configurable) generates PySpark code and natural language summaries from user questions. [web:21] |
+| **AgentCore Gateway** | Unified MCP tool front door | Exposes Spark Code Interpreter tools (SoAL, EMR, and other backends) as MCP tools behind a single Gateway endpoint that agents call. [web:81][web:80] |
+| **AgentCore Runtime** | Hosting MCP servers and tools | Runs MCP servers and tools so agents can securely invoke Spark Code Interpreter and any other registered tools at runtime. [web:88] |
+| **Spark Code Interpreter (SoAL backend)** | Fast code validation and small dataset processing | Executes generated PySpark on Spark on AWS Lambda for sub‑second validation and lightweight workloads. [web:59] |
+| **Spark Code Execution (EMR Serverless backend)** | Scalable production execution of Spark jobs | Executes the same PySpark code on Amazon EMR Serverless for large‑scale analytics (MBs → PBs). [web:45] |
+| **Streamlit Web App/AWS Quicksuite** | User interface for analysts | Lets users upload datasets, ask questions, review generated code, and visualize results. [web:21] |
+| **Amazon S3** | Data and result storage | Stores input datasets, intermediate artifacts, and query results used by Spark and the tools. [web:21] |
+| **AWS Lambda** | Compute for SoAL and glue logic | Hosts the SoAL Spark runtime and any Lambda-based tools that are also surfaced via AgentCore Gateway. [web:59][web:92] |
+
 
 ---
 
