@@ -59,7 +59,7 @@ Spark Code Interpreter is a **conversational analytics** solution that lets busi
 |-----------|---------|---------|
 | **AgentCore Runtime** | Agent + tool hosting | Runs the Spark orchestrator agent and its tools (data read, code generation, Spark‑code‑interpreter, result generation) inside AgentCore. |
 | **Spark orchestrator agent** | Controls end‑to‑end workflow | Orchestrates the sequence: read data → generate PySpark → execute via Spark‑code‑interpreter tool → generate and format results. |
-| **Data read tool** | Accesses datasets | Reads data from sources like Amazon S3 / data lake and hands sampled or full datasets to the orchestrator. |
+| **Data read tool** | Accesses datasets | Reads data from sources like Amazon S3 / Glue catalog(extend to Snowflake, Databricks and other using MCP) and hands sampled or full datasets to the orchestrator. |
 | **Code generation tool** | Builds PySpark code | Generates or refines PySpark based on the user request and available schema/metadata. |
 | **Spark‑code‑interpreter tool** | Interprets Spark code | Interprets the generated code, itertively fixes the code if there are issues in generated code by Code generation tool|
 | **Result generation tool** | Produces user‑friendly outputs | Aggregates Spark results and turns them into tables, charts, and natural‑language summaries. |
