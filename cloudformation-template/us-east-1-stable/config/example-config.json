@@ -1,0 +1,13 @@
+{
+  "account_id": "YOUR_AWS_ACCOUNT_ID",
+  "region": "us-east-1",
+  "environment": "dev",
+  "s3_bucket": "spark-data-YOUR_ACCOUNT_ID-us-east-1",
+  "lambda_function": "dev-spark-on-lambda",
+  "emr_application_id": "YOUR_EMR_APP_ID",
+  "emr_execution_role_arn": "arn:aws:iam::YOUR_ACCOUNT_ID:role/dev-spark-emr-execution-role",
+  "code_gen_agent_arn": "arn:aws:bedrock-agentcore:us-east-1:YOUR_ACCOUNT_ID:runtime/ray_code_interpreter-XXXXX",
+  "spark_supervisor_arn": "arn:aws:bedrock-agentcore:us-east-1:YOUR_ACCOUNT_ID:runtime/spark_supervisor_agent-XXXXX",
+  "bedrock_model": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "alb_url": "http://dev-spark-alb-XXXXX.us-east-1.elb.amazonaws.com"
+}
