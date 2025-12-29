@@ -330,7 +330,141 @@ Create or update `config.json` with your deployment outputs:
 ### Step 6: Upload Sample Datasets
 
 Upload sample CSV/Parquet files to your S3 bucket:
+# Quick Start Guide - Ray + Spark Platform
 
+## 🚀 **5-Minute Quick Start**
+
+### **1. Prerequisites Check**
+```bash
+cd terraform-ray-infrastructure
+./validate-prerequisites.sh
+```
+
+**If any checks fail**, refer to [`PREREQUISITES.md`](./PREREQUISITES.md) for detailed setup.
+
+### **2. Configure Deployment**
+```bash
+cp terraform.tfvars.example terraform.tfvars
+```
+
+**Minimal required changes in `terraform.tfvars`:**
+```hcl
+# Set your AWS region
+aws_region = "us-east-1"
+
+# Set environment name
+environment = "dev"
+
+# IMPORTANT: Set your IP address for security
+allowed_cidr_blocks = ["YOUR.IP.ADDRESS/32"]
+```
+
+**Get your IP:**
+```bash
+curl -s https://checkip.amazonaws.com
+# Example: 203.0.113.45
+# Use: ["203.0.113.45/32"]
+```
+
+### **3. Deploy Infrastructure**
+```bash
+./deploy.sh
+```
+
+**Deployment takes ~15-20 minutes**
+
+### **4. Access Your Platform**
+After deployment completes:
+```bash
+# Get access URLs
+terraform output
+
+# Test the platform
+./test-suite.sh
+```
+
+---
+
+## 📋 **What Gets Deployed**
+
+### **Compute Infrastructure**
+- **EKS Cluster**: Kubernetes cluster for Ray distributed computing
+- **ECS Fargate**: Serverless containers for React + FastAPI
+- **Lambda Functions**: Spark on Lambda for small datasets
+- **EMR Serverless**: Auto-scaling Spark for large datasets
+
+### **Data & Storage**
+- **S3 Buckets**: Data lake for both Spark and Ray workloads
+- **DynamoDB**: Chat history and session storage
+- **AWS Glue**: Data catalog and metadata management
+
+### **AI/ML Integration**
+- **Bedrock AgentCore**: AI agents for code generation
+- **MCP Gateway**: Model-Computer Protocol for validation
+- **Claude Sonnet 4**: Advanced code generation AI
+
+### **Networking & Security**
+- **VPC with Public/Private Subnets**: Secure network architecture
+- **Application Load Balancer**: High-availability load balancing
+- **Security Groups**: Least-privilege access control
+- **NAT Gateways**: Secure outbound internet access
+
+---
+
+## 🎯 **Access Points After Deployment**
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| **React App** | `http://your-alb-url.amazonaws.com` | Main user interface |
+| **FastAPI Backend** | `http://your-alb-url.amazonaws.com/api` | Unified Spark/Ray API |
+| **Ray Dashboard** | `http://ray-public-ip:8265` | Ray cluster monitoring |
+| **EKS Dashboard** | Via kubectl port-forward | Kubernetes management |
+
+---
+
+## 💰 **Cost Estimate**
+
+| Environment | Monthly Cost | Resources |
+|-------------|--------------|-----------|
+| **Development** | $273-400 | Minimal resources, spot instances |
+| **Staging** | $350-500 | Moderate resources, mixed instances |
+| **Production** | $400-643 | Full redundancy, on-demand instances |
+
+**Cost optimization tips:**
+- Use `enable_spot_instances = true` for dev/staging
+- Set `log_retention_days = 7` for development
+- Adjust `eks_node_desired_size` based on usage
+
+---
+
+## 🔧 **Common Configurations**
+
+### **Development Environment**
+```hcl
+environment = "dev"
+eks_node_desired_size = 1
+eks_node_max_size = 3
+ray_worker_max_replicas = 2
+enable_spot_instances = true
+log_retention_days = 7
+```
+
+### **Production Environment**
+```hcl
+environment = "prod"
+eks_node_desired_size = 3
+eks_node_max_size = 10
+ray_worker_max_replicas = 8
+enable_spot_instances = false
+log_retention_days = 30
+domain_name = "ray.yourcompany.com"
+```
+
+---
+
+## 🧪 **Testing Your Deployment**
+
+### **Quick Health Check**
 ```bash
 # Create sample dataset
 cat > /tmp/sales_data.csv << 'EOF'
@@ -580,6 +714,141 @@ aws s3 rb s3://my-spark-data-bucket
 
 
 ## Support
+# Backend API
+curl http://your-alb-url/health
+
+# Ray status
+curl http://your-alb-url/api/ray/status
+
+# Spark status
+curl http://your-alb-url/api/spark/status
+```
+
+### **Complete Test Suite**
+```bash
+./test-suite.sh all
+```
+
+### **Manual Testing**
+1. **Open React App**: Navigate to your application URL
+2. **Submit Ray Job**: Test distributed computing workload
+3. **Submit Spark Job**: Test data processing (small file → Lambda, large file → EMR)
+4. **Check Ray Dashboard**: Monitor cluster performance
+
+---
+
+## 🆘 **Troubleshooting**
+
+### **Deployment Failed**
+```bash
+# Check Terraform state
+terraform show
+
+# View detailed error logs
+terraform apply -auto-approve -detailed-exitcode
+
+# For specific component failures
+terraform apply -target=module.eks
+```
+
+### **Application Not Accessible**
+```bash
+# Check ALB health
+aws elbv2 describe-target-health --target-group-arn $(terraform output -raw alb_target_group_arn)
+
+# Check ECS service status
+aws ecs describe-services --cluster $(terraform output -raw ecs_cluster_name) --services ray-backend
+```
+
+### **Ray Cluster Issues**
+```bash
+# Configure kubectl
+aws eks update-kubeconfig --region $(terraform output -raw aws_region) --name $(terraform output -raw eks_cluster_id)
+
+# Check Ray pods
+kubectl get pods -n ray-system
+
+# View Ray logs
+kubectl logs -n ray-system -l app=ray-head
+```
+
+---
+
+## 🔄 **Updates & Maintenance**
+
+### **Update Application Code**
+```bash
+# Rebuild and push new images
+./deploy.sh
+
+# Or update specific services
+terraform apply -target=module.ecs
+```
+
+### **Scale Resources**
+```bash
+# Edit terraform.tfvars
+ray_worker_max_replicas = 10
+eks_node_max_size = 15
+
+# Apply changes
+terraform apply
+```
+
+### **Backup Important Data**
+```bash
+# Backup S3 data
+aws s3 sync s3://$(terraform output -raw s3_data_bucket_name) ./backup/
+
+# Export DynamoDB
+aws dynamodb scan --table-name $(terraform output -raw dynamodb_table_name) > backup/chat-history.json
+```
+
+---
+
+## 🧹 **Cleanup**
+
+### **Destroy Everything**
+```bash
+./deploy.sh destroy
+```
+
+### **Selective Cleanup**
+```bash
+# Remove only EKS cluster
+terraform destroy -target=module.eks
+
+# Remove only Ray cluster
+terraform destroy -target=module.ray_cluster
+```
+
+---
+
+## 📚 **Additional Documentation**
+
+- [`PREREQUISITES.md`](./PREREQUISITES.md) - Detailed dependency setup
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) - System architecture overview
+- [`DEPLOYMENT-CHECKLIST.md`](./DEPLOYMENT-CHECKLIST.md) - Step-by-step deployment guide
+- [`README.md`](./README.md) - Comprehensive documentation
+
+---
+
+## 🎉 **Success!**
+
+Once deployed, you'll have a **production-grade, unified Spark + Ray platform** that can:
+
+✅ **Process small datasets** in real-time with Spark on Lambda
+✅ **Handle big data** with auto-scaling EMR Serverless
+✅ **Run distributed ML/AI** workloads on Ray cluster
+✅ **Provide modern React interface** for natural language queries
+✅ **Scale automatically** based on demand
+✅ **Integrate with AWS services** seamlessly
+
+**Ready to revolutionize your data processing workflows!** 🚀
+## Future Road Map
+We have below items on future roadmap
+* In case of a larger dataset, use subset of the dataset to provide realtime results back to the user.
+* Automatically decide weather to use SoAL or EMR serverless based on the size of the dataset.
 
 For issues, feature requests, or questions:
 - **GitHub Issues**: https://github.com/nabaws/spark-code-interpreter/issues
