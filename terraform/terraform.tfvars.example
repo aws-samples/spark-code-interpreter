@@ -1,0 +1,24 @@
+# AWS Configuration
+aws_region = "us-east-1"
+
+# EC2 Configuration
+instance_type = "t3.micro"
+my_ip         = "YOUR_IP_ADDRESS/32"  # Replace with your actual IP in CIDR notation
+
+# Git Configuration
+git_repo   = "https://github.com/aws-samples/spark-code-interpreter.git"
+git_branch = "feature/sloanintegration"
+
+# Lambda Configuration
+image_uri      = "YOUR_ECR_IMAGE_URI"  # Replace with your ECR image URI (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/spark-lambda:latest)
+lambda_timeout = 900
+lambda_memory  = 3008
+
+# Resource Names (ensure these are globally unique)
+stack_name      = "spark-interpreter"
+dynamodb_table  = "chat-history-table-UNIQUE_SUFFIX"
+user_id         = "default-user"
+bucket_name     = "spark-interpreter-main-bucket-UNIQUE_SUFFIX"
+input_bucket    = "spark-interpreter-input-bucket-UNIQUE_SUFFIX"
+input_s3_path   = "input/"
+lambda_function = "spark-lambda-function"

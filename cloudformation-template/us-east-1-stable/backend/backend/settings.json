@@ -1,0 +1,36 @@
+{
+  "ray_cluster": {
+    "private_ip": "",
+    "public_ip": ""
+  },
+  "s3": {
+    "bucket": "spark-data-025523569182-us-east-1"
+  },
+  "ray": {
+    "gateway_url": "",
+    "supervisor_arn": "arn:aws:bedrock-agentcore:us-east-1:025523569182:runtime/supervisor_agent-XsSTYK7vQs"
+  },
+  "global": {
+    "bedrock_model": "anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "code_gen_agent_arn": "arn:aws:bedrock-agentcore:us-east-1:025523569182:runtime/ray_code_interpreter-DgYYS1F4wS",
+    "bedrock_region": "us-east-1"
+  },
+  "spark": {
+    "s3_bucket": "spark-data-025523569182-us-east-1",
+    "lambda_function": "dev-spark-on-lambda",
+    "emr_application_id": "",
+    "max_retries": 3,
+    "file_size_threshold_mb": 100,
+    "result_preview_rows": 100,
+    "presigned_url_expiry_hours": 24,
+    "lambda_timeout_seconds": 300,
+    "emr_timeout_minutes": 10,
+    "supervisor_arn": "arn:aws:bedrock-agentcore:us-east-1:025523569182:runtime/spark_supervisor_agent-Lzd4a42r0A",
+    "emr_postgres_application_id": ""
+  },
+  "postgres": {
+    "connections": [],
+    "default_connection": null,
+    "jdbc_driver_path": "s3://spark-data-025523569182-us-east-1/jars/postgresql-42.7.8.jar"
+  }
+}

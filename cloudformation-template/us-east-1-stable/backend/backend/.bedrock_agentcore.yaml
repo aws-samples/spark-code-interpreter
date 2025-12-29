@@ -1,0 +1,106 @@
+default_agent: supervisor_agent
+agents:
+  ray_code_interpreter:
+    name: ray_code_interpreter
+    entrypoint: /Users/kamokash/Library/CloudStorage/OneDrive-amazon.com/DJA/codebase-nabeel/spark-code-interpreter/data-processing-agent/backend/agents.py
+    deployment_type: container
+    runtime_type: null
+    platform: linux/arm64
+    container_runtime: docker
+    source_path: null
+    aws:
+      execution_role: arn:aws:iam::025523569182:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-a7ee536645
+      execution_role_auto_create: false
+      account: 025523569182
+      region: us-east-1
+      ecr_repository: 025523569182.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-ray_code_interpreter
+      ecr_auto_create: false
+      s3_path: null
+      s3_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+        network_mode_config: null
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+      lifecycle_configuration:
+        idle_runtime_session_timeout: null
+        max_lifetime: null
+    bedrock_agentcore:
+      agent_id: ray_code_interpreter-oTKmLH9IB9
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/ray_code_interpreter-oTKmLH9IB9
+      agent_session_id: null
+    codebuild:
+      project_name: null
+      execution_role: null
+      source_bucket: null
+    memory:
+      mode: NO_MEMORY
+      memory_id: null
+      memory_arn: null
+      memory_name: null
+      event_expiry_days: 30
+      first_invoke_memory_check_done: false
+      was_created_by_toolkit: false
+    identity:
+      credential_providers: []
+      workload: null
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null
+    api_key_env_var_name: null
+    api_key_credential_provider_name: null
+    is_generated_by_agentcore_create: false
+  supervisor_agent:
+    name: supervisor_agent
+    entrypoint: /Users/kamokash/Library/CloudStorage/OneDrive-amazon.com/DJA/codebase-nabeel/spark-code-interpreter/data-processing-agent/backend/supervisor_agents.py
+    deployment_type: container
+    runtime_type: null
+    platform: linux/arm64
+    container_runtime: docker
+    source_path: null
+    aws:
+      execution_role: arn:aws:iam::025523569182:role/AmazonBedrockAgentCoreSDKRuntime-us-west-2-5130eca7b1
+      execution_role_auto_create: false
+      account: 025523569182
+      region: us-west-2
+      ecr_repository: 025523569182.dkr.ecr.us-west-2.amazonaws.com/bedrock-agentcore-supervisor_agent
+      ecr_auto_create: false
+      s3_path: null
+      s3_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+        network_mode_config: null
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+      lifecycle_configuration:
+        idle_runtime_session_timeout: null
+        max_lifetime: null
+    bedrock_agentcore:
+      agent_id: supervisor_agent-DhX6P1H536
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:025523569182:runtime/supervisor_agent-DhX6P1H536
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-supervisor_agent-builder
+      execution_role: arn:aws:iam::025523569182:role/AmazonBedrockAgentCoreSDKCodeBuild-us-west-2-5130eca7b1
+      source_bucket: bedrock-agentcore-codebuild-sources-025523569182-us-west-2
+    memory:
+      mode: NO_MEMORY
+      memory_id: null
+      memory_arn: null
+      memory_name: null
+      event_expiry_days: 30
+      first_invoke_memory_check_done: false
+      was_created_by_toolkit: false
+    identity:
+      credential_providers: []
+      workload: null
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null
+    api_key_env_var_name: null
+    api_key_credential_provider_name: null
+    is_generated_by_agentcore_create: false
