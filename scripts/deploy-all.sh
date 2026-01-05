@@ -31,7 +31,7 @@ echo "Environment: $ENVIRONMENT"
 echo ""
 
 # Get AWS Account ID
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-cli-pager)
 echo "Account: $ACCOUNT_ID"
 echo ""
 
@@ -95,12 +95,58 @@ if [ -f ".bedrock_agentcore.yaml" ]; then
     sed -i.bak '/agent_arn:/d' .bedrock_agentcore.yaml 2>/dev/null || true
 fi
 
+# Copy custom Dockerfile with gcc support
+if [ -f "Dockerfile.custom" ]; then
+    cp Dockerfile.custom Dockerfile
+    echo "Using custom Dockerfile with build tools"
+fi
+
 python3 agent_deployment.py
 if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Spark Supervisor Agent deployment failed${NC}"
     exit 1
 fi
 echo -e "${GREEN}✅ Spark Supervisor Agent deployed${NC}"
+echo ""
+
+# Add EMR permissions to the agent's execution role
+echo -e "${YELLOW}Adding EMR permissions to agent execution role...${NC}"
+AGENT_ROLE=$(grep "execution_role:" .bedrock_agentcore.yaml | head -1 | awk '{print $2}' | sed 's/arn:aws:iam::[0-9]*:role\///')
+if [ -n "$AGENT_ROLE" ]; then
+    cat > /tmp/emr-policy.json <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "emr-serverless:StartJobRun",
+        "emr-serverless:GetJobRun",
+        "emr-serverless:CancelJobRun",
+        "emr-serverless:ListJobRuns"
+      ],
+      "Resource": "arn:aws:emr-serverless:${REGION}:${ACCOUNT_ID}:*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole"
+      ],
+      "Resource": "arn:aws:iam::${ACCOUNT_ID}:role/${ENVIRONMENT}-spark-emr-execution-role"
+    }
+  ]
+}
+EOF
+    aws iam put-role-policy \
+      --role-name "$AGENT_ROLE" \
+      --policy-name "EMRServerlessStartJobPolicy" \
+      --policy-document file:///tmp/emr-policy.json \
+      --no-cli-pager > /dev/null 2>&1
+    rm /tmp/emr-policy.json
+    echo -e "${GREEN}✅ EMR permissions added${NC}"
+else
+    echo -e "${YELLOW}⚠️  Could not determine agent role, skipping EMR permissions${NC}"
+fi
 echo ""
 
 # Wait for agent to be ready
@@ -115,6 +161,12 @@ cd "$PROJECT_ROOT/agent-code/code-generation-agent"
 if [ -f ".bedrock_agentcore.yaml" ]; then
     sed -i.bak '/agent_id:/d' .bedrock_agentcore.yaml 2>/dev/null || true
     sed -i.bak '/agent_arn:/d' .bedrock_agentcore.yaml 2>/dev/null || true
+fi
+
+# Copy custom Dockerfile with gcc support
+if [ -f "Dockerfile.custom" ]; then
+    cp Dockerfile.custom Dockerfile
+    echo "Using custom Dockerfile with build tools"
 fi
 
 python3 agent_deployment.py
@@ -163,16 +215,24 @@ ECR_REPO_NAME="${ENVIRONMENT}-spark-lambda"
 
 # Create ECR repository if needed
 echo -e "${YELLOW}Creating ECR repository...${NC}"
-aws ecr describe-repositories --repository-names $ECR_REPO_NAME --region $REGION 2>/dev/null || \
-    aws ecr create-repository --repository-name $ECR_REPO_NAME --region $REGION
+if ! aws ecr describe-repositories --repository-names $ECR_REPO_NAME --region $REGION --no-cli-pager 2>&1 | grep -q "$ECR_REPO_NAME"; then
+    echo "Repository doesn't exist, creating..."
+    aws ecr create-repository --repository-name $ECR_REPO_NAME --region $REGION --no-cli-pager 2>&1 | head -5 || true
+else
+    echo "Repository already exists"
+fi
 echo -e "${GREEN}✅ ECR repository ready${NC}"
 echo ""
 
 # Login to ECR
 echo -e "${YELLOW}Logging into ECR...${NC}"
-aws ecr get-login-password --region $REGION | \
-    docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com
-echo -e "${GREEN}✅ Logged in${NC}"
+aws ecr get-login-password --region $REGION --no-cli-pager 2>&1 | head -1 | \
+    docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✅ Logged in${NC}"
+else
+    echo -e "${YELLOW}⚠️  Login may have issues, continuing...${NC}"
+fi
 echo ""
 
 # Build and push with buildx
@@ -183,7 +243,8 @@ echo "Platform: linux/amd64 (Lambda requirement)"
 echo "Includes: S3 write fix (JAR classpath)"
 echo ""
 
-docker buildx create --use --name lambda-builder 2>/dev/null || docker buildx use lambda-builder
+# Ensure buildx builder exists
+docker buildx create --use --name lambda-builder 2>/dev/null || docker buildx use lambda-builder 2>/dev/null || true
 
 docker buildx build \
     --platform linux/amd64 \
@@ -193,9 +254,9 @@ docker buildx build \
     --push \
     --provenance=false \
     --sbom=false \
-    Docker/ 2>&1 | tail -n 20
+    Docker/ 2>&1 | grep -E "(#|=>|ERROR|error|Writing|Pushing)" | tail -30
 
-if [ $? -ne 0 ]; then
+if [ ${PIPESTATUS[0]} -ne 0 ]; then
     echo -e "${RED}❌ Docker build failed${NC}"
     exit 1
 fi
@@ -213,15 +274,15 @@ echo ""
 
 # Get VPC and Subnets
 echo -e "${YELLOW}Getting VPC and subnet information...${NC}"
-VPC_ID=$(aws ec2 describe-vpcs --region $REGION --filters "Name=is-default,Values=true" --query 'Vpcs[0].VpcId' --output text)
+VPC_ID=$(aws ec2 describe-vpcs --region $REGION --filters "Name=is-default,Values=true" --query 'Vpcs[0].VpcId' --output text --no-cli-pager)
 
 if [ "$VPC_ID" == "None" ] || [ -z "$VPC_ID" ]; then
     echo -e "${RED}❌ No default VPC found${NC}"
     exit 1
 fi
 
-PRIVATE_SUBNETS=$(aws ec2 describe-subnets --region $REGION --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[0:2].SubnetId' --output text | tr '\t' ',')
-PUBLIC_SUBNETS=$(aws ec2 describe-subnets --region $REGION --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[0:2].SubnetId' --output text | tr '\t' ',')
+PRIVATE_SUBNETS=$(aws ec2 describe-subnets --region $REGION --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[0:2].SubnetId' --output text --no-cli-pager | tr '\t' ',')
+PUBLIC_SUBNETS=$(aws ec2 describe-subnets --region $REGION --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[0:2].SubnetId' --output text --no-cli-pager | tr '\t' ',')
 
 echo "VPC: $VPC_ID"
 echo "Private Subnets: $PRIVATE_SUBNETS"
@@ -229,7 +290,7 @@ echo "Public Subnets: $PUBLIC_SUBNETS"
 echo ""
 
 # Check if stack exists
-STACK_EXISTS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION 2>&1 | grep -c "does not exist" || true)
+STACK_EXISTS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --region $REGION --no-cli-pager 2>&1 | grep -c "does not exist" || true)
 
 if [ "$STACK_EXISTS" -gt 0 ]; then
     echo -e "${YELLOW}Creating new CloudFormation stack...${NC}"
@@ -245,11 +306,12 @@ if [ "$STACK_EXISTS" -gt 0 ]; then
             ParameterKey=PrivateSubnetIds,ParameterValue=\"$PRIVATE_SUBNETS\" \
             ParameterKey=PublicSubnetIds,ParameterValue=\"$PUBLIC_SUBNETS\" \
         --capabilities CAPABILITY_NAMED_IAM \
-        --region $REGION
+        --region $REGION \
+        --no-cli-pager 2>&1 | head -10
     
     echo ""
     echo -e "${YELLOW}Waiting for stack creation (this may take 5-10 minutes)...${NC}"
-    aws cloudformation wait stack-create-complete --stack-name $STACK_NAME --region $REGION
+    aws cloudformation wait stack-create-complete --stack-name $STACK_NAME --region $REGION --no-cli-pager 2>&1 | head -20
     
     if [ $? -ne 0 ]; then
         echo -e "${RED}❌ Stack creation failed${NC}"
@@ -258,7 +320,7 @@ if [ "$STACK_EXISTS" -gt 0 ]; then
     fi
 else
     echo -e "${YELLOW}Updating existing CloudFormation stack...${NC}"
-    aws cloudformation update-stack \
+    UPDATE_OUTPUT=$(aws cloudformation update-stack \
         --stack-name $STACK_NAME \
         --template-body file://cloudformation/spark-complete-stack.yml \
         --parameters \
@@ -270,14 +332,16 @@ else
             ParameterKey=PrivateSubnetIds,ParameterValue=\"$PRIVATE_SUBNETS\" \
             ParameterKey=PublicSubnetIds,ParameterValue=\"$PUBLIC_SUBNETS\" \
         --capabilities CAPABILITY_NAMED_IAM \
-        --region $REGION 2>&1 | tee /tmp/cf-update.log
+        --region $REGION \
+        --no-cli-pager 2>&1)
     
-    if grep -q "No updates are to be performed" /tmp/cf-update.log; then
+    if echo "$UPDATE_OUTPUT" | grep -q "No updates are to be performed"; then
         echo -e "${YELLOW}No updates needed${NC}"
     else
+        echo "$UPDATE_OUTPUT" | head -10
         echo ""
         echo -e "${YELLOW}Waiting for stack update...${NC}"
-        aws cloudformation wait stack-update-complete --stack-name $STACK_NAME --region $REGION
+        aws cloudformation wait stack-update-complete --stack-name $STACK_NAME --region $REGION --no-cli-pager 2>&1 | head -20
         
         if [ $? -ne 0 ]; then
             echo -e "${RED}❌ Stack update failed${NC}"
@@ -289,6 +353,38 @@ fi
 
 echo -e "${GREEN}✅ CloudFormation stack deployed${NC}"
 echo ""
+
+# ============================================================================
+# STEP 4: Deploy Wrapper Lambda Code
+# ============================================================================
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}Step 4: Deploying Wrapper Lambda Code${NC}"
+echo -e "${BLUE}========================================${NC}"
+echo ""
+
+cd "$PROJECT_ROOT/agent-wrapper"
+
+echo -e "${YELLOW}Creating deployment package...${NC}"
+zip -q agent_wrapper.zip agent_wrapper.py
+
+echo -e "${YELLOW}Updating Lambda function code...${NC}"
+aws lambda update-function-code \
+    --function-name ${ENVIRONMENT}-spark-agent-wrapper \
+    --zip-file fileb://agent_wrapper.zip \
+    --region $REGION \
+    --no-cli-pager 2>&1 | head -10
+
+echo -e "${YELLOW}Waiting for Lambda to be ready...${NC}"
+aws lambda wait function-updated \
+    --function-name ${ENVIRONMENT}-spark-agent-wrapper \
+    --region $REGION 2>&1 | head -10 || true
+
+rm agent_wrapper.zip
+
+echo -e "${GREEN}✅ Wrapper Lambda code deployed${NC}"
+echo ""
+
+cd "$PROJECT_ROOT"
 
 # ============================================================================
 # DEPLOYMENT COMPLETE
@@ -304,7 +400,8 @@ aws cloudformation describe-stacks \
     --stack-name $STACK_NAME \
     --region $REGION \
     --query 'Stacks[0].Outputs[*].[OutputKey,OutputValue]' \
-    --output table
+    --output table \
+    --no-cli-pager
 
 echo ""
 echo -e "${GREEN}✅ All components deployed successfully!${NC}"

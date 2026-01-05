@@ -442,7 +442,7 @@ Resources:
     Properties:
       FunctionName: !Sub '${Environment}-spark-agent-wrapper'
       Runtime: python3.11
-      Handler: index.lambda_handler
+      Handler: agent_wrapper.lambda_handler
       Role: !GetAtt WrapperLambdaRole.Arn
       Timeout: 900
       MemorySize: 512
@@ -457,17 +457,10 @@ Resources:
           EMR_ROLE_ARN: !GetAtt EMRExecutionRole.Arn
       Code:
         ZipFile: |
+          # Placeholder - will be updated by deployment script
           import json
-          import boto3
-          import os
-          import logging
-          import uuid
-          
-          logger = logging.getLogger()
-          logger.setLevel(logging.INFO)
-          
-          agent_core_client = boto3.client('bedrock-agentcore', region_name='us-east-1')
-          AGENT_ARN = os.environ.get('AGENT_ARN')
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': json.dumps({'message': 'Placeholder - update with actual code'})}
           
           def lambda_handler(event, context):
               try:

@@ -477,13 +477,23 @@ def execute_spark_code_lambda(spark_code: str, s3_output_path: str) -> dict:
     )
     
     result = json.loads(response['Payload'].read())
-    lambda_status = 'success' if result.get('status') == 'success' else 'error'
+    
+    # Parse the response body if it's a string
+    if 'body' in result:
+        body = json.loads(result['body']) if isinstance(result['body'], str) else result['body']
+    else:
+        body = result
+    
+    # Extract actual S3 output path from Lambda response
+    actual_s3_output_path = body.get('s3_output_path', s3_output_path)
+    
+    lambda_status = 'success' if result.get('statusCode') == 200 else 'error'
     
     return {
         'status': lambda_status,
         'execution_platform': 'lambda',
-        's3_output_path': s3_output_path,
-        'result': result,
+        's3_output_path': actual_s3_output_path,  # Use actual path from Lambda
+        'result': body,
         'lambda_function': config['lambda_function']
     }
 
@@ -537,11 +547,18 @@ def execute_spark_code_emr(spark_code: str, s3_output_path: str) -> dict:
     if jdbc_driver:
         spark_params += f' --jars {jdbc_driver}'
     
+    # Get account ID dynamically if not provided
+    emr_role_arn = os.environ.get('EMR_EXECUTION_ROLE_ARN')
+    if not emr_role_arn:
+        # Get account ID from STS
+        sts_client = boto3.client('sts')
+        account_id = sts_client.get_caller_identity()['Account']
+        emr_role_arn = f"arn:aws:iam::{account_id}:role/EMRServerlessExecutionRole"
+    
     # Start EMR job
     response = emr_client.start_job_run(
         applicationId=app_id,
-        executionRoleArn=os.environ.get('EMR_EXECUTION_ROLE_ARN', 
-            f"arn:aws:iam::{os.environ.get('AWS_ACCOUNT_ID', '025523569182')}:role/EMRServerlessExecutionRole"),
+        executionRoleArn=emr_role_arn,
         jobDriver={
             'sparkSubmit': {
                 'entryPoint': script_path,

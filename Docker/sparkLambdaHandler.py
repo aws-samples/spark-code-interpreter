@@ -278,12 +278,20 @@ def lambda_handler(event, context):
                         plotly_holder.append(image_path_s3)
                         logger.info(f"Added plotly to results: {image_path_s3}")
         
+        # Always construct and return the S3 output path
+        # This is where Spark writes results (bucket + file_path from input)
+        actual_s3_output_path = f"s3://{bucket}/{s3_file_path}" if bucket and s3_file_path else None
+        
         tool_result = {
-            "result": result,            
+            "result": result,
+            "s3_output_path": actual_s3_output_path,  # Include actual output path
+            "bucket": bucket,  # Also include bucket for debugging
+            "file_path": s3_file_path,  # And file_path for debugging
             "image_dict": image_holder,
             "plotly": plotly_holder
         }
-        logger.info(tool_result)
+        logger.info(f"Tool result with S3 path: {actual_s3_output_path}")
+        logger.info(f"Bucket: {bucket}, File path: {s3_file_path}")
         logger.info("Spark job completed successfully")        
         
         return {

@@ -225,6 +225,23 @@ if [ -n "$S3_BUCKET" ]; then
     echo -e "${GREEN}✅ S3 bucket deleted${NC}"
 fi
 
+# Delete security groups
+echo ""
+echo -e "${YELLOW}Deleting security groups...${NC}"
+SECURITY_GROUPS=(
+    "${ENVIRONMENT}-spark-emr-sg"
+    "${ENVIRONMENT}-spark-lambda-sg"
+)
+
+for sg_name in "${SECURITY_GROUPS[@]}"; do
+    echo "Deleting security group: $sg_name"
+    SG_ID=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=$sg_name" --region $REGION --query 'SecurityGroups[0].GroupId' --output text 2>/dev/null)
+    if [ "$SG_ID" != "None" ] && [ -n "$SG_ID" ]; then
+        aws ec2 delete-security-group --group-id $SG_ID --region $REGION 2>/dev/null || echo "  Security group in use or already deleted"
+    fi
+done
+echo -e "${GREEN}✅ Security groups cleaned up${NC}"
+
 # Clean up local config files
 echo ""
 echo -e "${YELLOW}Cleaning up local configuration files...${NC}"

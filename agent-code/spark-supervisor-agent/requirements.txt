@@ -1,14 +1,9 @@
-fastapi
-uvicorn
-python-dotenv
-boto3
-requests
-pydantic
-uv
+boto3>=1.35.0
+requests>=2.31.0
+pydantic>=2.5.0
 strands-agents
-strands-agents-tools
 bedrock-agentcore
-bedrock-agentcore-starter-toolkit
-mcp
 pandas
 psycopg2-binary
+# Use pure Python YAML parser to avoid gcc requirement
+PyYAML>=6.0

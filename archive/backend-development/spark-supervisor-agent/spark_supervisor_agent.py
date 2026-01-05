@@ -481,13 +481,23 @@ def execute_spark_code_lambda(spark_code: str, s3_output_path: str) -> dict:
     )
     
     result = json.loads(response['Payload'].read())
-    lambda_status = 'success' if result.get('status') == 'success' else 'error'
+    
+    # Parse the response body if it's a string
+    if 'body' in result:
+        body = json.loads(result['body']) if isinstance(result['body'], str) else result['body']
+    else:
+        body = result
+    
+    # Extract actual S3 output path from Lambda response
+    actual_s3_output_path = body.get('s3_output_path', s3_output_path)
+    
+    lambda_status = 'success' if result.get('statusCode') == 200 else 'error'
     
     return {
         'status': lambda_status,
         'execution_platform': 'lambda',
-        's3_output_path': s3_output_path,
-        'result': result,
+        's3_output_path': actual_s3_output_path,  # Use actual path from Lambda
+        'result': body,
         'lambda_function': config['lambda_function']
     }
 
