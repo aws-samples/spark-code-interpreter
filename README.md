@@ -147,7 +147,7 @@ Deploy in a region that supports:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/nabaws/spark-code-interpreter.git
+git clone [https://github.com/nabaws/spark-code-interpreter.git](https://github.com/aws-samples/spark-code-interpreter.git)
 cd spark-code-interpreter
 ```
 
