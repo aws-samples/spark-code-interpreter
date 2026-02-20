@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="Web site created using create-react-app"
+    />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <title>React App</title>
+    <script>
+      // Clean ResizeObserver error suppression
+      window.addEventListener('error', function(e) {
+        if (e.message && e.message.includes('ResizeObserver')) {
+          e.stopImmediatePropagation();
+          return false;
+        }
+      });
+      
+      const debounce = (func, wait) => {
+        let timeout;
+        return function executedFunction(...args) {
+          const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+          };
+          clearTimeout(timeout);
+          timeout = setTimeout(later, wait);
+        };
+      };
+      
+      const OriginalResizeObserver = window.ResizeObserver;
+      window.ResizeObserver = class extends OriginalResizeObserver {
+        constructor(callback) {
+          const debouncedCallback = debounce(callback, 16);
+          super(debouncedCallback);
+        }
+      };
+    </script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

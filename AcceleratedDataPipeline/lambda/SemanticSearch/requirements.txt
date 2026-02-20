@@ -1,0 +1,6 @@
+boto3
+botocore
+requests
+httpx
+mcp
+jsonschema==4.17.3

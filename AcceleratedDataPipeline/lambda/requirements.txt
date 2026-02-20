@@ -1,0 +1,5 @@
+strands
+boto3
+typing-extensions
+pymysql
+psycopg2-binary

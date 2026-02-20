@@ -1,0 +1,44 @@
+/* Disable browser extension auto-fill icons that cause ResizeObserver errors */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+textarea {
+  background-image: none !important;
+  background-position: initial !important;
+  background-repeat: initial !important;
+  background-attachment: initial !important;
+  background-origin: initial !important;
+  background-clip: initial !important;
+  background-color: initial !important;
+  background-size: initial !important;
+}
+
+/* Prevent LastPass and other extensions from adding icons */
+input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+  height: 0;
+  width: 0;
+  margin: 0;
+}
+
+/* Additional browser extension prevention */
+input[data-lastpass-icon-root],
+input[data-lpignore="true"] {
+  background-image: none !important;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}

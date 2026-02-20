@@ -1,0 +1,24 @@
+{
+	"Version": "2012-10-17",
+	"Statement": [
+		{
+			"Effect": "Allow",
+			"Action": [
+				"bedrock-agentcore:ListGateways",
+				"bedrock-agentcore:GetGateway",
+				"bedrock-agentcore:CreateGateway",
+				"bedrock-agentcore:ListGatewayTargets",
+				"bedrock-agentcore:GetGatewayTarget"
+			],
+			"Resource": "arn:aws:bedrock-agentcore:*:*:*gateway*"
+		},
+		{
+			"Effect": "Allow",
+			"Action": [
+				"cognito-idp:CreateUserPoolClient",
+				"cognito-idp:InitiateAuth"
+			],
+			"Resource": "*"
+		}
+	]
+}

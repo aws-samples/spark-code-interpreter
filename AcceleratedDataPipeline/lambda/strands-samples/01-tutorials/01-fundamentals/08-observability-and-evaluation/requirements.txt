@@ -1,0 +1,13 @@
+boto3
+botocore
+awscli
+opensearch-py
+requests-aws4auth
+pyyaml
+retrying
+strands-agents
+strands-agents-tools
+langfuse
+ragas
+langchain-aws
+pandas
