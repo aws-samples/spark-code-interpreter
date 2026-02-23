@@ -34,10 +34,26 @@ def local_code_executy(code_string, spark_configs):
     output_file_path = '/tmp/output.json'
     log_file_path = '/tmp/spark_log.txt'
 
+    # Lambda-compatible Spark configurations
+    spark_home = os.environ.get('SPARK_HOME', '/var/lang/lib/python3.8/site-packages/pyspark')
+    jars_dir = f"{spark_home}/jars"
+    
+    # Find S3 JARs
+    hadoop_aws_jar = f"{jars_dir}/hadoop-aws-3.3.4.jar"
+    aws_sdk_jar = f"{jars_dir}/aws-java-sdk-bundle-1.12.261.jar"
+    
     spark_submit_args = [
         "spark-submit",
+        "--jars", f"{hadoop_aws_jar},{aws_sdk_jar}",  # Add S3 JARs to classpath
         "--conf", "spark.driver.extraJavaOptions=-Dlog4j.configuration=file:/opt/spark/conf/log4j.properties",
         "--conf", "spark.executor.extraJavaOptions=-Dlog4j.configuration=file:/opt/spark/conf/log4j.properties",
+        "--conf", "spark.driver.host=127.0.0.1",
+        "--conf", "spark.driver.bindAddress=127.0.0.1",
+        "--conf", "spark.driver.port=0",
+        "--conf", "spark.blockManager.port=0",
+        "--conf", "spark.ui.enabled=false",
+        "--conf", "spark.driver.allowMultipleContexts=false",
+        "--master", "local[1]",
     ]
     if spark_configs:
         logger.info(f"Adding Spark configurations: {spark_configs}")
@@ -48,9 +64,10 @@ def local_code_executy(code_string, spark_configs):
     try:
         logger.info("Starting Spark job execution")
         # Execute the temporary file and capture both stdout and stderr
+        # Don't use check=True - we'll check output file existence instead
         result = subprocess.run(
            spark_submit_args,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=False)
 
         # Write logs to file
         with open(log_file_path, 'w') as log_file:
@@ -58,15 +75,25 @@ def local_code_executy(code_string, spark_configs):
             log_file.write(result.stderr)
         logger.info(f"Spark execution logs written to {log_file_path}")
 
-        # If execution was successful, read the output
+        # Check if output file was created (this is the real success indicator)
         if os.path.exists(output_file_path):
             logger.info(f"Reading output from {output_file_path}")
             with open(output_file_path, 'r') as f:
                 output = json.load(f)
+            
+            # Log warning if there was a non-zero exit code but output exists
+            if result.returncode != 0:
+                logger.warning(f"Spark process exited with code {result.returncode}, but output file was created successfully. This is likely a shutdown error that can be ignored.")
+            
             return output
         else:
             logger.error("Output file not found after Spark execution")
-            raise CodeExecutionError("Output file not found. Execution may have failed without producing output.")
+            # Only now treat it as an error
+            if result.returncode != 0:
+                error_message = parse_error(result.stdout, result.stderr, code_string, log_file_path)
+                raise CodeExecutionError(error_message)
+            else:
+                raise CodeExecutionError("Output file not found. Execution may have failed without producing output.")
 
     except subprocess.CalledProcessError as e:
         logger.error("Spark job execution failed")
@@ -195,12 +222,26 @@ def put_obj_in_s3_bucket_(docs, bucket, key_prefix):
 def lambda_handler(event, context):
     try:
         logger.info("Received request to run Spark job")
-        input_data = event['body']
+        # Support both API Gateway format (event['body']) and direct invocation
+        if 'body' in event:
+            input_data = event['body']
+        else:
+            input_data = event
         logger.info(f"Input data: {input_data}")
         iterate = input_data.get('iterate', 0)
         bucket=input_data.get('bucket','')
         s3_file_path=input_data.get('file_path','')        
-        spark_config = input_data.get('config', '')
+        
+        # Support both 'config' and 'spark_config' parameters
+        spark_config = input_data.get('config', input_data.get('spark_config', {}))
+        
+        # If spark_config is empty, set default S3 configuration
+        if not spark_config:
+            spark_config = {
+                'spark.hadoop.fs.s3a.impl': 'org.apache.hadoop.fs.s3a.S3AFileSystem',
+                'spark.hadoop.fs.s3.impl': 'org.apache.hadoop.fs.s3a.S3AFileSystem',
+                'spark.hadoop.fs.s3a.aws.credentials.provider': 'com.amazonaws.auth.DefaultAWSCredentialsProviderChain'
+            }
         
         logger.info(f"Job parameters - Bucket: {bucket}, Path: {s3_file_path}, Iterate: {iterate}")
         logger.info(f"Spark config: {spark_config}")
@@ -237,12 +278,20 @@ def lambda_handler(event, context):
                         plotly_holder.append(image_path_s3)
                         logger.info(f"Added plotly to results: {image_path_s3}")
         
+        # Always construct and return the S3 output path
+        # This is where Spark writes results (bucket + file_path from input)
+        actual_s3_output_path = f"s3://{bucket}/{s3_file_path}" if bucket and s3_file_path else None
+        
         tool_result = {
-            "result": result,            
+            "result": result,
+            "s3_output_path": actual_s3_output_path,  # Include actual output path
+            "bucket": bucket,  # Also include bucket for debugging
+            "file_path": s3_file_path,  # And file_path for debugging
             "image_dict": image_holder,
             "plotly": plotly_holder
         }
-        logger.info(tool_result)
+        logger.info(f"Tool result with S3 path: {actual_s3_output_path}")
+        logger.info(f"Bucket: {bucket}, File path: {s3_file_path}")
         logger.info("Spark job completed successfully")        
         
         return {

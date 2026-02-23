@@ -1,0 +1,733 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Complete Spark Code Interpreter Stack - Stable us-east-1 Deployment'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+    Description: Environment name
+  
+  BedrockModel:
+    Type: String
+    Default: us.anthropic.claude-sonnet-4-5-20250929-v1:0
+    Description: Bedrock model ID for agents (Claude Sonnet 4.5)
+  
+  SparkSupervisorAgentArn:
+    Type: String
+    Description: ARN of the Spark Supervisor Agent (deployed separately)
+    Default: ''
+  
+  CodeGenerationAgentArn:
+    Type: String
+    Description: ARN of the Code Generation Agent (deployed separately)
+    Default: ''
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for EMR and Lambda
+  
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Private subnet IDs for EMR (minimum 2)
+  
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnet IDs for ALB (minimum 2)
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Environment Configuration
+        Parameters:
+          - Environment
+          - BedrockModel
+      - Label:
+          default: Agent Configuration
+        Parameters:
+          - SparkSupervisorAgentArn
+          - CodeGenerationAgentArn
+      - Label:
+          default: Network Configuration
+        Parameters:
+          - VpcId
+          - PrivateSubnetIds
+          - PublicSubnetIds
+
+Resources:
+  # ============================================================================
+  # Cognito User Pool for JWT Authentication
+  # ============================================================================
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${Environment}-spark-gateway-users'
+      AutoVerifiedAttributes:
+        - email
+      UsernameAttributes:
+        - email
+      UsernameConfiguration:
+        CaseSensitive: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate:
+          - email
+      UserPoolTags:
+        Environment: !Ref Environment
+
+  # Cognito Resource Server for custom OAuth scopes
+  CognitoResourceServer:
+    Type: AWS::Cognito::UserPoolResourceServer
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      Identifier: spark-api
+      Name: Spark API
+      Scopes:
+        - ScopeName: spark.execute
+          ScopeDescription: Execute Spark code and data processing tasks
+
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    DependsOn: CognitoResourceServer
+    Properties:
+      ClientName: !Sub '${Environment}-spark-gateway-client'
+      UserPoolId: !Ref CognitoUserPool
+      GenerateSecret: true
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+      AllowedOAuthFlows:
+        - client_credentials
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - spark-api/spark.execute
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub '${Environment}-spark-gateway-${AWS::AccountId}'
+      UserPoolId: !Ref CognitoUserPool
+
+  # ============================================================================
+  # S3 Bucket for Spark Data
+  # ============================================================================
+  SparkDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'spark-data-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldOutputs
+            Status: Enabled
+            ExpirationInDays: 30
+            Prefix: output/
+          - Id: DeleteOldLogs
+            Status: Enabled
+            ExpirationInDays: 7
+            Prefix: logs/
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: SparkData
+
+  # ============================================================================
+  # IAM Roles
+  # ============================================================================
+  
+  # Lambda Execution Role (for Spark Lambda)
+  SparkLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-spark-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: SparkLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt SparkDataBucket.Arn
+                  - !Sub '${SparkDataBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetTable
+                  - glue:GetPartitions
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # Wrapper Lambda Role (for Agent Wrapper)
+  WrapperLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-spark-wrapper-lambda-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: WrapperLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock-agentcore:InvokeAgentRuntime
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt SparkDataBucket.Arn
+                  - !Sub '${SparkDataBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # EMR Serverless Execution Role
+  EMRExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-spark-emr-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: emr-serverless.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EMRExecutionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt SparkDataBucket.Arn
+                  - !Sub '${SparkDataBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetTable
+                  - glue:GetPartitions
+                  - glue:CreateTable
+                  - glue:UpdateTable
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # AgentCore Runtime Role
+  AgentCoreRuntimeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'AmazonBedrockAgentCoreSDKRuntime-${AWS::Region}-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+      Policies:
+        - PolicyName: AgentCoreRuntimePolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !GetAtt SparkOnLambda.Arn
+              - Effect: Allow
+                Action:
+                  - emr-serverless:StartJobRun
+                  - emr-serverless:GetJobRun
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt SparkDataBucket.Arn
+                  - !Sub '${SparkDataBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - glue:GetDatabase
+                  - glue:GetTable
+                  - glue:GetPartitions
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # ============================================================================
+  # AgentCore Gateway with MCP Support
+  # ============================================================================
+  
+  # Gateway IAM Role
+  GatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-spark-gateway-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonBedrockFullAccess
+      Policies:
+        - PolicyName: GatewayPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                  - bedrock-agentcore:InvokeRuntime
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource:
+                  - !GetAtt SparkOnLambda.Arn
+                  - !GetAtt SparkAgentWrapper.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+  
+  SparkAgentCoreGateway:
+    Type: AWS::BedrockAgentCore::Gateway
+    Properties:
+      Name: !Sub '${Environment}-spark-gateway'
+      Description: 'Spark Supervisor Agent Gateway with Cognito JWT and MCP support'
+      RoleArn: !GetAtt GatewayRole.Arn
+      AuthorizerType: CUSTOM_JWT
+      AuthorizerConfiguration:
+        CustomJWTAuthorizer:
+          DiscoveryUrl: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${CognitoUserPool}/.well-known/openid-configuration'
+          AllowedAudience:
+            - !Ref CognitoUserPoolClient
+      ProtocolType: MCP
+      ProtocolConfiguration:
+        Mcp:
+          Instructions: 'Gateway for Spark code generation and execution. Use this to invoke the Spark Supervisor Agent for data processing tasks.'
+      Tags:
+        Environment: !Ref Environment
+  
+  # Note: Gateway Targets will be added separately via API or Console
+  # The Gateway provides an MCP endpoint that can be used to invoke the Spark Supervisor Agent
+  # Agent ARN: arn:aws:bedrock-agentcore:us-east-1:817323390093:runtime/spark_supervisor_agent-kSQUxI8Tqu
+  
+  # ============================================================================
+  # Lambda Functions
+  # ============================================================================
+  
+  # Spark Lambda - Executes PySpark code
+  # NOTE: The Docker image must include S3 configuration support
+  # See Docker/sparkLambdaHandler.py for S3A filesystem configuration
+  # Build and push image before deploying this stack:
+  #   cd Docker && docker build -t dev-spark-lambda:latest .
+  #   docker push {account}.dkr.ecr.{region}.amazonaws.com/dev-spark-lambda:latest
+  SparkOnLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Environment}-spark-on-lambda'
+      PackageType: Image
+      Role: !GetAtt SparkLambdaRole.Arn
+      Timeout: 300
+      MemorySize: 3008
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref SparkDataBucket
+      Code:
+        ImageUri: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Environment}-spark-lambda:latest'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+      Description: 'Executes PySpark code with automatic S3 configuration for S3A filesystem'
+
+  # Wrapper Lambda - Accepts natural language and invokes Spark Supervisor Agent
+  SparkAgentWrapper:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Environment}-spark-agent-wrapper'
+      Runtime: python3.11
+      Handler: agent_wrapper.lambda_handler
+      Role: !GetAtt WrapperLambdaRole.Arn
+      Timeout: 900
+      MemorySize: 512
+      Environment:
+        Variables:
+          AGENT_ARN: !Ref SparkSupervisorAgentArn
+          S3_BUCKET: !Ref SparkDataBucket
+          SPARK_LAMBDA_ARN: !GetAtt SparkOnLambda.Arn
+          CODE_GEN_ARN: !Ref CodeGenerationAgentArn
+          BEDROCK_MODEL: !Ref BedrockModel
+          EMR_APP_ID: !Ref EMRServerlessApplication
+          EMR_ROLE_ARN: !GetAtt EMRExecutionRole.Arn
+      Code:
+        ZipFile: |
+          # Placeholder - will be updated by deployment script
+          import json
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': json.dumps({'message': 'Placeholder - update with actual code'})}
+          
+          def lambda_handler(event, context):
+              try:
+                  logger.info(f"Received event: {json.dumps(event)}")
+                  logger.info(f"Event keys: {list(event.keys())}")
+                  
+                  # Extract prompt from various input formats
+                  prompt = None
+                  if 'body' in event:
+                      body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
+                      prompt = body.get('prompt') or body.get('query') or body.get('question')
+                  else:
+                      prompt = event.get('prompt') or event.get('query') or event.get('question')
+                  
+                  if not prompt:
+                      logger.error("No prompt provided in request")
+                      return {
+                          'statusCode': 400,
+                          'body': json.dumps({
+                              'error': 'Missing prompt parameter',
+                              'usage': 'Provide "prompt", "query", or "question" in request body'
+                          })
+                      }
+                  
+                  logger.info(f"Processing prompt: {prompt}")
+                  logger.info(f"Invoking agent: {AGENT_ARN}")
+                  
+                  session_id = str(uuid.uuid4())
+                  logger.info(f"Session ID: {session_id}")
+                  
+                  s3_bucket = os.environ.get('S3_BUCKET')
+                  s3_output_path = f"s3://{s3_bucket}/{session_id}/output/"
+                  
+                  payload_dict = {
+                      'prompt': prompt,
+                      'session_id': session_id,
+                      's3_output_path': s3_output_path,
+                      'config': {
+                          'model_id': os.environ.get('BEDROCK_MODEL'),
+                          'bedrock_model': os.environ.get('BEDROCK_MODEL'),
+                          'bedrock_region': 'us-east-1',
+                          'lambda_function': os.environ.get('SPARK_LAMBDA_ARN').split(':')[-1],
+                          'lambda_arn': os.environ.get('SPARK_LAMBDA_ARN'),
+                          's3_bucket': s3_bucket,
+                          's3_output_path': s3_output_path,
+                          'code_gen_agent_arn': os.environ.get('CODE_GEN_ARN'),
+                          'emr_application_id': os.environ.get('EMR_APP_ID', ''),
+                          'emr_execution_role_arn': os.environ.get('EMR_ROLE_ARN', ''),
+                          'region': 'us-east-1',
+                          'spark_config': {
+                              'spark.hadoop.fs.s3a.impl': 'org.apache.hadoop.fs.s3a.S3AFileSystem',
+                              'spark.hadoop.fs.s3.impl': 'org.apache.hadoop.fs.s3a.S3AFileSystem',
+                              'spark.hadoop.fs.s3a.aws.credentials.provider': 'com.amazonaws.auth.DefaultAWSCredentialsProviderChain'
+                          }
+                      }
+                  }
+                  
+                  logger.info(f"Payload prepared with session_id: {session_id}")
+                  
+                  response = agent_core_client.invoke_agent_runtime(
+                      agentRuntimeArn=AGENT_ARN,
+                      runtimeSessionId=session_id,
+                      payload=json.dumps(payload_dict).encode()
+                  )
+                  
+                  logger.info("Agent invoked successfully")
+                  result_text = response['response'].read().decode('utf-8')
+                  logger.info(f"Agent response received (length: {len(result_text)})")
+                  
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'result': result_text,
+                          'prompt': prompt,
+                          'sessionId': session_id
+                      }),
+                      'headers': {'Content-Type': 'application/json'}
+                  }
+                  
+              except Exception as e:
+                  logger.error(f"Error: {str(e)}")
+                  import traceback
+                  logger.error(traceback.format_exc())
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({
+                          'error': 'Internal server error',
+                          'details': str(e)
+                      })
+                  }
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+      Description: 'Wrapper Lambda that accepts natural language and invokes Spark Supervisor Agent'
+
+  # Permission for Gateway to invoke Wrapper Lambda
+  WrapperLambdaGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SparkAgentWrapper
+      Action: lambda:InvokeFunction
+      Principal: bedrock-agentcore.amazonaws.com
+      SourceArn: !GetAtt SparkAgentCoreGateway.GatewayArn
+
+  # ============================================================================
+  # EMR Serverless Application
+  # ============================================================================
+  
+  EMRSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub '${Environment}-spark-emr-sg'
+      GroupDescription: Security group for EMR Serverless
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+          Description: Allow all outbound traffic
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+  
+  EMRServerlessApplication:
+    Type: AWS::EMRServerless::Application
+    DependsOn: EMRSecurityGroup
+    Properties:
+      Name: !Sub '${Environment}-spark-emr'
+      ReleaseLabel: emr-6.15.0
+      Type: Spark
+      MaximumCapacity:
+        Cpu: 100 vCPU
+        Memory: 200 GB
+        Disk: 400000 GB
+      AutoStartConfiguration:
+        Enabled: true
+      AutoStopConfiguration:
+        Enabled: true
+        IdleTimeoutMinutes: 15
+      NetworkConfiguration:
+        SubnetIds: !Ref PrivateSubnetIds
+        SecurityGroupIds:
+          - !Ref EMRSecurityGroup
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ============================================================================
+  # Application Load Balancer (Optional - Gateway provides its own endpoint)
+  # ============================================================================
+  # Commented out - Gateway provides its own URL endpoint
+  # Uncomment if you need a custom ALB in front of the Gateway
+
+Outputs:
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref CognitoUserPool
+    Export:
+      Name: !Sub '${Environment}-CognitoUserPoolId'
+  
+  CognitoUserPoolArn:
+    Description: Cognito User Pool ARN
+    Value: !GetAtt CognitoUserPool.Arn
+    Export:
+      Name: !Sub '${Environment}-CognitoUserPoolArn'
+  
+  CognitoAppClientId:
+    Description: Cognito App Client ID
+    Value: !Ref CognitoUserPoolClient
+    Export:
+      Name: !Sub '${Environment}-CognitoAppClientId'
+  
+  CognitoClientSecretCommand:
+    Description: Command to retrieve the client secret
+    Value: !Sub 'aws cognito-idp describe-user-pool-client --user-pool-id ${CognitoUserPool} --client-id ${CognitoUserPoolClient} --query UserPoolClient.ClientSecret --output text --region ${AWS::Region}'
+  
+  CognitoTokenEndpoint:
+    Description: OAuth2 token endpoint for client credentials flow
+    Value: !Sub 'https://${Environment}-spark-gateway-${AWS::AccountId}.auth.${AWS::Region}.amazoncognito.com/oauth2/token'
+  
+  CognitoUserPoolDomain:
+    Description: Cognito User Pool Domain
+    Value: !Sub '${Environment}-spark-gateway-${AWS::AccountId}'
+    Export:
+      Name: !Sub '${Environment}-CognitoUserPoolDomain'
+  
+  AgentCoreGatewayId:
+    Description: AgentCore Gateway ID
+    Value: !Ref SparkAgentCoreGateway
+    Export:
+      Name: !Sub '${Environment}-AgentCoreGatewayId'
+  
+  AgentCoreGatewayArn:
+    Description: AgentCore Gateway ARN
+    Value: !GetAtt SparkAgentCoreGateway.GatewayArn
+    Export:
+      Name: !Sub '${Environment}-AgentCoreGatewayArn'
+  
+  AgentCoreGatewayUrl:
+    Description: AgentCore Gateway URL (use with MCP or direct invocation)
+    Value: !GetAtt SparkAgentCoreGateway.GatewayUrl
+    Export:
+      Name: !Sub '${Environment}-AgentCoreGatewayUrl'
+  
+  SparkDataBucketName:
+    Description: S3 bucket for Spark data
+    Value: !Ref SparkDataBucket
+    Export:
+      Name: !Sub '${Environment}-SparkDataBucket'
+  
+  SparkLambdaFunctionName:
+    Description: Spark Lambda function name
+    Value: !Ref SparkOnLambda
+    Export:
+      Name: !Sub '${Environment}-SparkLambdaFunction'
+  
+  SparkLambdaFunctionArn:
+    Description: Spark Lambda function ARN
+    Value: !GetAtt SparkOnLambda.Arn
+    Export:
+      Name: !Sub '${Environment}-SparkLambdaArn'
+  
+  WrapperLambdaFunctionName:
+    Description: Wrapper Lambda function name
+    Value: !Ref SparkAgentWrapper
+    Export:
+      Name: !Sub '${Environment}-WrapperLambdaFunction'
+  
+  WrapperLambdaFunctionArn:
+    Description: Wrapper Lambda function ARN
+    Value: !GetAtt SparkAgentWrapper.Arn
+    Export:
+      Name: !Sub '${Environment}-WrapperLambdaArn'
+  
+  EMRApplicationId:
+    Description: EMR Serverless application ID
+    Value: !Ref EMRServerlessApplication
+    Export:
+      Name: !Sub '${Environment}-EMRApplicationId'
+  
+  EMRExecutionRoleArn:
+    Description: EMR execution role ARN
+    Value: !GetAtt EMRExecutionRole.Arn
+    Export:
+      Name: !Sub '${Environment}-EMRExecutionRoleArn'
+  
+  AgentCoreRuntimeRoleArn:
+    Description: AgentCore runtime role ARN
+    Value: !GetAtt AgentCoreRuntimeRole.Arn
+    Export:
+      Name: !Sub '${Environment}-AgentCoreRuntimeRoleArn'
+  
+  # Manual Configuration Instructions
+  GatewayTargetInstructions:
+    Description: Instructions for adding Gateway Target (must be done manually)
+    Value: !Sub |
+      Gateway Targets cannot be added via CloudFormation due to schema complexity.
+      
+      Manual Steps Required:
+      1. Go to AWS Console: https://console.aws.amazon.com/bedrock/home?region=${AWS::Region}#/agentcore/gateways
+      2. Select Gateway: ${SparkAgentCoreGateway}
+      3. Click 'Add target'
+      4. Configure:
+         - Name: spark-agent
+         - Type: Lambda
+         - Lambda ARN: ${SparkAgentWrapper.Arn}
+         - Tool Schema: See GATEWAY_TARGET_CONFIG.md for JSON schema
+      
+      Tool Schema:
+      [{"name":"ask_agent","description":"Ask Spark Supervisor Agent a natural language question","inputSchema":{"type":"object","properties":{"prompt":{"type":"string","description":"Natural language query"}},"required":["prompt"]}}]
+

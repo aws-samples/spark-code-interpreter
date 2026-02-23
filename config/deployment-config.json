@@ -1,0 +1,8 @@
+{
+  "spark": {
+    "supervisor_arn": "arn:aws:bedrock-agentcore:us-east-1:817323390093:runtime/spark_supervisor_agent-kSQUxI8Tqu"
+  },
+  "global": {
+    "code_gen_agent_arn": "arn:aws:bedrock-agentcore:us-east-1:817323390093:runtime/ray_code_interpreter-FKoWFR2k9A"
+  }
+}

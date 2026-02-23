@@ -28,6 +28,9 @@ RUN yum update -y && \
     pip install pyspark==$PYSPARK_VERSION boto3 && \
     yum clean all
 
+# Set JAVA_HOME
+ENV JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk
+
 # Copy and install Python requirements
 COPY requirements.txt ${LAMBDA_TASK_ROOT}/
 RUN pip install -r ${LAMBDA_TASK_ROOT}/requirements.txt
@@ -52,10 +55,8 @@ RUN echo "$FRAMEWORK" | grep -q "DEEQU" && \
 # Set environment variables for PySpark
 ENV SPARK_HOME="/var/lang/lib/python3.8/site-packages/pyspark"
 ENV SPARK_VERSION=3.3.0
-ENV PATH=$PATH:$SPARK_HOME/bin
-ENV PATH=$PATH:$SPARK_HOME/sbin
-ENV PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j-0.10.9-src.zip:/home/glue_functions:$PYTHONPATH
-ENV PATH=$SPARK_HOME/python:$PATH
+ENV PYTHONPATH=$SPARK_HOME/python:$SPARK_HOME/python/lib/py4j-0.10.9-src.zip:/home/glue_functions
+ENV PATH=$PATH:$SPARK_HOME/bin:$SPARK_HOME/sbin:$SPARK_HOME/python
 
 COPY download_jars.sh /tmp
 # COPY libs/glue_functions /home/glue_functions
