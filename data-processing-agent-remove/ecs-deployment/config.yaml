@@ -1,0 +1,65 @@
+# Ray on ECS Configuration
+
+# AWS Configuration
+aws:
+  region: us-east-1
+  profile: default
+
+# ECS Cluster Configuration
+ecs:
+  cluster_name: ray-ecs-cluster
+  launch_type: FARGATE  # FARGATE or EC2
+
+# Network Configuration
+network:
+  use_existing: true
+  vpc_id: vpc-0485dcc1f1d050b55
+  subnet_ids: [subnet-0ffcc9c369d011e54, subnet-04c2c799482ddc064]  # Public subnets in us-east-1a and us-east-1b
+  # For new VPC:
+  vpc_cidr: "10.0.0.0/16"
+  availability_zones: 2
+
+# Ray Head Node Configuration
+ray_head:
+  cpu: 1024  # CPU units (1024 = 1 vCPU)
+  memory: 2048  # Memory in MB
+  ray_version: "2.49.2"
+  desired_count: 1
+  python_packages:
+    - torch
+    - filelock
+    - numpy
+    - torchvision
+    - awswrangler>=3.0.0
+    - pyarrow>=10.0.0
+    - pyathena>=3.0.0
+
+# Ray Worker Configuration
+ray_worker:
+  cpu: 1024
+  memory: 2048
+  ray_version: "2.49.2"
+  min_count: 0
+  max_count: 5
+  desired_count: 0  # Start with 0 workers
+  python_packages:
+    - torch
+    - filelock
+    - numpy
+    - torchvision
+    - awswrangler>=3.0.0
+    - pyarrow>=10.0.0
+    - pyathena>=3.0.0
+
+# Auto-scaling Configuration
+autoscaling:
+  enabled: false  # Disabled due to permission constraints - can be manually scaled
+  scale_up_cpu_threshold: 70  # Scale up when CPU > 70%
+  scale_down_cpu_threshold: 20  # Scale down when CPU < 20%
+  scale_up_cooldown: 60  # seconds
+  scale_down_cooldown: 300  # seconds (5 minutes)
+
+# Service Discovery
+service_discovery:
+  namespace: ray-cluster
+  head_service_name: ray-head

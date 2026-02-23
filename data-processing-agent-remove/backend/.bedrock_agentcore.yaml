@@ -1,0 +1,38 @@
+default_agent: ray_code_interpreter
+agents:
+  ray_code_interpreter:
+    name: ray_code_interpreter
+    entrypoint: /Users/nmurich/strands-agents/agent-core/ray-code-interpreter-agent/backend/agents.py
+    platform: linux/arm64
+    container_runtime: none
+    aws:
+      execution_role: arn:aws:iam::260005718447:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-a7ee536645
+      execution_role_auto_create: false
+      account: '260005718447'
+      region: us-east-1
+      ecr_repository: 260005718447.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-ray_code_interpreter
+      ecr_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+    bedrock_agentcore:
+      agent_id: ray_code_interpreter-oTKmLH9IB9
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/ray_code_interpreter-oTKmLH9IB9
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-ray_code_interpreter-builder
+      execution_role: arn:aws:iam::260005718447:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-a7ee536645
+      source_bucket: bedrock-agentcore-codebuild-sources-260005718447-us-east-1
+    memory:
+      mode: STM_ONLY
+      memory_id: ray_code_interpreter_mem-4QpyU5EMFM
+      memory_arn: arn:aws:bedrock-agentcore:us-east-1:260005718447:memory/ray_code_interpreter_mem-4QpyU5EMFM
+      memory_name: ray_code_interpreter_mem
+      event_expiry_days: 30
+      first_invoke_memory_check_done: false
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null

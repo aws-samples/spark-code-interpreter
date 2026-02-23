@@ -1,0 +1,265 @@
+{
+  "ray_cluster": {
+    "private_ip": "172.31.80.237",
+    "public_ip": "54.173.21.137"
+  },
+  "s3": {
+    "bucket": "strands-ray-data"
+  },
+  "ray": {
+    "gateway_url": "https://ray-validation-gateway-e9r35gofyj.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp",
+    "supervisor_arn": "arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/supervisor_agent-caFwzSALky",
+    "namespace": "ray-system",
+    "cluster_name": "ray-cluster",
+    "ray_version": "2.9.0",
+    "head": {
+      "cpu": "1",
+      "memory": "2Gi",
+      "replicas": 1
+    },
+    "worker": {
+      "min_replicas": 0,
+      "max_replicas": 5,
+      "cpu": "1",
+      "memory": "2Gi",
+      "replicas_default": 1
+    },
+    "autoscaling": {
+      "enabled": true,
+      "idle_timeout_seconds": 300
+    }
+  },
+  "global": {
+    "bedrock_model": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+    "code_gen_agent_arn": "arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/ray_code_interpreter-oTKmLH9IB9",
+    "bedrock_region": "us-east-1"
+  },
+  "spark": {
+    "s3_bucket": "spark-data-260005718447-us-east-1",
+    "lambda_function": "sparkOnLambda-spark-code-interpreter",
+    "emr_application_id": "00fv6g7rptsov009",
+    "max_retries": 3,
+    "file_size_threshold_mb": 100,
+    "result_preview_rows": 100,
+    "presigned_url_expiry_hours": 24,
+    "lambda_timeout_seconds": 300,
+    "emr_timeout_minutes": 10,
+    "supervisor_arn": "arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/spark_supervisor_agent-EZPQeDGCjR",
+    "emr_postgres_application_id": "00g0oddl52n83r09"
+  },
+  "postgres": {
+    "connections": [
+      {
+        "name": "postgres",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/postgres-6000e611-4eOauK",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "user_password",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-e9d9d867-9Bxwrf",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "user_password",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-56011483-NrIXbC",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "user_password",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-967bdca7-jS7ksa",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "user_password",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-967bdca7-jS7ksa",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-e9d9d867-9Bxwrf",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-e9d9d867-9Bxwrf",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-e9d9d867-9Bxwrf",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-e9d9d867-9Bxwrf",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-e9d9d867-9Bxwrf",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-e9d9d867-9Bxwrf",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-e9d9d867-9Bxwrf",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-e9d9d867-9Bxwrf",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-967bdca7-jS7ksa",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-967bdca7-jS7ksa",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-967bdca7-jS7ksa",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-967bdca7-jS7ksa",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-967bdca7-jS7ksa",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-967bdca7-jS7ksa",
+        "description": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database.cluster-ro-c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-967bdca7-jS7ksa",
+        "description": "pg-database-instance-1.c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database-instance-1.c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      },
+      {
+        "name": "aurora",
+        "secret_arn": "arn:aws:secretsmanager:us-east-1:260005718447:secret:spark/postgres/aurora-967bdca7-jS7ksa",
+        "description": "pg-database-instance-1.c8lobwtocefp.us-east-1.rds.amazonaws.com:5432/postgres",
+        "enabled": true,
+        "auth_method": "secrets_manager",
+        "host": "pg-database-instance-1.c8lobwtocefp.us-east-1.rds.amazonaws.com",
+        "port": 5432,
+        "database": "postgres"
+      }
+    ],
+    "jdbc_driver_path": "s3://spark-data-260005718447-us-east-1/jars/postgresql-42.7.8.jar"
+  }
+}

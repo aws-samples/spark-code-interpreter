@@ -1,0 +1,159 @@
+"""Ray Code Interpreter - Optimized Agent with Validation"""
+
+import os
+import time
+import base64
+import re
+import requests
+from strands import Agent, tool
+from strands.models import BedrockModel
+from bedrock_agentcore.runtime import BedrockAgentCoreApp
+
+# Ray cluster configuration
+#RAY_HEAD_IP = os.getenv('RAY_HEAD_IP', '13.220.45.214')
+#RAY_DASHBOARD_URL = f"http://{RAY_HEAD_IP}:8265"
+#RAY_JOBS_API = f"{RAY_DASHBOARD_URL}/api/jobs/"
+
+os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+app = BedrockAgentCoreApp()
+
+def create_ray_code_agent(ray_head_ip):
+    """Agent that discovers data, generates code, and validates"""
+    RAY_HEAD_IP = ray_head_ip
+    RAY_DASHBOARD_URL = f"http://{RAY_HEAD_IP}:8265"
+    RAY_JOBS_API = f"{RAY_DASHBOARD_URL}/api/jobs/"
+    
+    @tool
+    def get_data_sources(session_id: str) -> dict:
+        """Get available CSV files and Glue tables for the isolated prompt session"""
+        # Import here to avoid circular imports
+        try:
+            from main import prompt_sessions
+        except ImportError:
+            # Fallback if main module not available
+            return {"csv": None, "tables": []}
+        
+        print(f"🔍 get_data_sources called with session_id: {session_id}")
+        print(f"   Available prompt_sessions: {list(prompt_sessions.keys())}")
+        
+        # Use prompt session for isolation (not base session)
+        if session_id not in prompt_sessions:
+            print(f"   ⚠️ Session {session_id} not found in prompt_sessions")
+            return {"csv": None, "tables": []}
+        
+        prompt_data = prompt_sessions[session_id]
+        print(f"   ✓ Found data - CSV: {prompt_data['csv']['filename'] if prompt_data['csv'] else 'None'}, Tables: {len(prompt_data['tables'])}")
+        
+        return {
+            "csv": prompt_data['csv'],
+            "tables": prompt_data['tables']
+        }
+    
+    @tool
+    def validate_code(code: str) -> dict:
+        """Validate Ray code by executing on cluster"""
+        try:
+            # First test connectivity
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(10)
+            result = sock.connect_ex((RAY_HEAD_IP.split(':')[0] if ':' in RAY_HEAD_IP else RAY_HEAD_IP, 8265))
+            sock.close()
+            
+            if result != 0:
+                return {"success": False, "error": f"Cannot connect to Ray cluster at {RAY_HEAD_IP}:8265. Network connectivity issue from AgentCore runtime."}
+            
+            test_code = re.sub(r'ray\.init\([^)]*\)\s*\n?', '', code)
+            script = f"import ray\nray.init(address='auto')\n{test_code}"
+            encoded = base64.b64encode(script.encode()).decode()
+            
+            job_data = {"entrypoint": f"python -c \"import base64; exec(base64.b64decode('{encoded}').decode())\""}
+            response = requests.post(RAY_JOBS_API, json=job_data, timeout=10)
+            response.raise_for_status()
+            job_id = response.json()['job_id']
+            
+            # Poll for completion (30 sec for validation)
+            start_time = time.time()
+            while time.time() - start_time < 30:
+                status_response = requests.get(f"{RAY_JOBS_API}{job_id}")
+                status_data = status_response.json()
+                
+                if status_data['status'] == 'SUCCEEDED':
+                    return {"success": True, "error": None}
+                elif status_data['status'] == 'FAILED':
+                    logs_response = requests.get(f"{RAY_JOBS_API}{job_id}/logs")
+                    logs = logs_response.json().get('logs', '')
+                    error_lines = [l for l in logs.split('\n') if 'Error' in l or 'Exception' in l or 'Traceback' in l]
+                    error = '\n'.join(error_lines[-3:]) if error_lines else logs[-200:]
+                    return {"success": False, "error": error}
+                
+                time.sleep(1)
+            
+            return {"success": False, "error": "Validation timeout"}
+        except Exception as e:
+            return {"success": False, "error": f"Network/connectivity error: {str(e)}"}
+    
+    model = BedrockModel(model_id='us.anthropic.claude-sonnet-4-5-20250929-v1:0')
+    
+    agent = Agent(
+        model=model,
+        system_prompt="""You are a Ray distributed data processing specialist.
+
+MANDATORY WORKFLOW - FOLLOW EXACTLY:
+1. Extract the Session ID from the user prompt (format: "Session ID: xxx")
+2. Call get_data_sources(session_id) using that Session ID to discover available data
+3. Generate Ray code using the discovered data sources
+4. Call validate_code(code) to test the generated code
+5. Check validation result:
+   - If success=True: Return ONLY the validated code
+   - If success=False: Read the error, fix the code, call validate_code again
+6. Repeat validation up to 3 times if needed
+7. You MUST get success=True before returning code
+8. If all 3 attempts fail, return: "Validation failed after 3 attempts: [error]"
+
+RAY OPERATIONS:
+- ray.data.read_csv(s3_path), ray.data.read_parquet(s3_path)
+- .map(lambda x: {...}) - Return dict
+- .filter(lambda x: condition)
+- .take_all() - Get results
+- print() for output
+
+CRITICAL RULES:
+- NEVER use pandas
+- map() returns dict, not scalars
+- Always include print() statements
+- Use exact S3 paths from get_data_sources
+
+DATA SOURCE FORMAT:
+CSV: {"filename": "x.csv", "s3_path": "s3://bucket/path"}
+Glue: {"database": "db", "table": "tbl", "location": "s3://..."}
+
+RETURN FORMAT:
+Return ONLY the Python code that passed validation (no explanations, no markdown).""",
+        tools=[get_data_sources, validate_code],
+        name="RayCodeAgent"
+    )
+    
+    return agent
+
+@app.entrypoint
+def invoke(payload):
+    prompt = payload.get("prompt")
+    ray_cluster_ip = payload.get("ray_cluster_ip")
+    agent = create_ray_code_agent(ray_cluster_ip)
+    response = agent(prompt)
+    
+    # Extract text content from agent response
+    if hasattr(response, 'message') and hasattr(response.message, 'content'):
+        content_text = ""
+        for block in response.message.content:
+            if hasattr(block, 'text'):
+                content_text += block.text
+        return content_text
+    elif hasattr(response, 'content'):
+        return response.content
+    else:
+        return str(response)
+
+if __name__ == "__main__":
+    app.run()

@@ -1,0 +1,35 @@
+Starting Ray on ECS deployment...
+Using existing VPC: vpc-0485dcc1f1d050b55
+Running: aws --region us-east-1 --profile default ec2 describe-vpcs --vpc-ids vpc-0485dcc1f1d050b55
+Running: aws --region us-east-1 --profile default ec2 describe-subnets --subnet-ids subnet-0ffcc9c369d011e54 subnet-04c2c799482ddc064
+
+=== Creating Security Group ===
+Running: aws --region us-east-1 --profile default ec2 create-security-group --group-name ray-ecs-cluster-sg --description Security group for Ray cluster --vpc-id vpc-0485dcc1f1d050b55
+Running: aws --region us-east-1 --profile default ec2 authorize-security-group-ingress --group-id sg-052f922fa69cf0ff7 --protocol all --source-group sg-052f922fa69cf0ff7
+Running: aws --region us-east-1 --profile default ec2 authorize-security-group-ingress --group-id sg-052f922fa69cf0ff7 --protocol tcp --port 8265 --cidr 0.0.0.0/0
+Created security group: sg-052f922fa69cf0ff7
+
+=== Creating IAM Roles ===
+Running: aws --region us-east-1 --profile default iam create-role --role-name ray-ecs-cluster-exec-role --assume-role-policy-document {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "ecs-tasks.amazonaws.com"}, "Action": "sts:AssumeRole"}]}
+Running: aws --region us-east-1 --profile default iam attach-role-policy --role-name ray-ecs-cluster-exec-role --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+Running: aws --region us-east-1 --profile default iam create-role --role-name ray-ecs-cluster-task-role --assume-role-policy-document {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Principal": {"Service": "ecs-tasks.amazonaws.com"}, "Action": "sts:AssumeRole"}]}
+Error: 
+An error occurred (EntityAlreadyExists) when calling the CreateRole operation: Role with name ray-ecs-cluster-task-role already exists.
+
+Running: aws --region us-east-1 --profile default iam get-role --role-name ray-ecs-cluster-task-role
+Execution role: arn:aws:iam::260005718447:role/ray-ecs-cluster-exec-role
+Task role: arn:aws:iam::260005718447:role/ray-ecs-cluster-task-role
+
+=== Creating ECS Cluster ===
+Running: aws --region us-east-1 --profile default ecs create-cluster --cluster-name ray-ecs-cluster
+Created ECS cluster: ray-ecs-cluster
+
+=== Creating Service Discovery ===
+Running: aws --region us-east-1 --profile default servicediscovery create-private-dns-namespace --name ray-cluster --vpc vpc-0485dcc1f1d050b55
+Error: 
+An error occurred (AccessDeniedException) when calling the CreatePrivateDnsNamespace operation: User: arn:aws:iam::260005718447:user/nmurich_dev is not authorized to perform: servicediscovery:CreatePrivateDnsNamespace on resource: arn:aws:servicediscovery:us-east-1:260005718447:*/* because no identity-based policy allows the servicediscovery:CreatePrivateDnsNamespace action
+
+Running: aws --region us-east-1 --profile default servicediscovery list-namespaces
+Error: 
+An error occurred (AccessDeniedException) when calling the ListNamespaces operation: User: arn:aws:iam::260005718447:user/nmurich_dev is not authorized to perform: servicediscovery:ListNamespaces on resource: arn:aws:servicediscovery:us-east-1:260005718447:*/* because no identity-based policy allows the servicediscovery:ListNamespaces action
+

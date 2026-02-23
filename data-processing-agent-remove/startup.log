@@ -1,0 +1,71 @@
+🚀 Starting Ray Code Interpreter...
+📦 Starting backend...
+INFO:     Will watch for changes in these directories: ['/Users/nmurich/strands-agents/agent-core/data-processing-agent/backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [43400] using StatReload
+Process SpawnProcess-1:
+Traceback (most recent call last):
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/uvicorn/_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/uvicorn/server.py", line 67, in run
+    return asyncio.run(self.serve(sockets=sockets))
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/asyncio/runners.py", line 44, in run
+    return loop.run_until_complete(main)
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/asyncio/base_events.py", line 647, in run_until_complete
+    return future.result()
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/uvicorn/server.py", line 71, in serve
+    await self._serve(sockets)
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/uvicorn/server.py", line 78, in _serve
+    config.load()
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/uvicorn/config.py", line 436, in load
+    self.loaded_app = import_from_string(self.app)
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1030, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1007, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 986, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 680, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 850, in exec_module
+  File "<frozen importlib._bootstrap>", line 228, in _call_with_frames_removed
+  File "/Users/nmurich/strands-agents/agent-core/data-processing-agent/backend/main.py", line 82, in <module>
+    agentcore_client = boto3.client(
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/boto3/__init__.py", line 92, in client
+    return _get_default_session().client(*args, **kwargs)
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/boto3/session.py", line 322, in client
+    return self._session.create_client(
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/botocore/context.py", line 123, in wrapper
+    return func(*args, **kwargs)
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/botocore/session.py", line 1019, in create_client
+    client = client_creator.create_client(
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/botocore/client.py", line 121, in create_client
+    service_model = self._load_service_model(service_name, api_version)
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/botocore/client.py", line 229, in _load_service_model
+    json_model = self._loader.load_service_model(
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/botocore/loaders.py", line 143, in _wrapper
+    data = func(self, *args, **kwargs)
+  File "/Users/nmurich/opt/anaconda3/lib/python3.9/site-packages/botocore/loaders.py", line 409, in load_service_model
+    raise UnknownServiceError(
+botocore.exceptions.UnknownServiceError: Unknown service: 'bedrock-agentcore'. Valid service names are: accessanalyzer, account, acm, acm-pca, amp, amplify, amplifybackend, amplifyuibuilder, apigateway, apigatewaymanagementapi, apigatewayv2, appconfig, appconfigdata, appfabric, appflow, appintegrations, application-autoscaling, application-insights, application-signals, applicationcostprofiler, appmesh, apprunner, appstream, appsync, apptest, arc-zonal-shift, artifact, athena, auditmanager, autoscaling, autoscaling-plans, b2bi, backup, backup-gateway, backupsearch, batch, bcm-data-exports, bcm-pricing-calculator, bedrock, bedrock-agent, bedrock-agent-runtime, bedrock-data-automation, bedrock-data-automation-runtime, bedrock-runtime, billing, billingconductor, braket, budgets, ce, chatbot, chime, chime-sdk-identity, chime-sdk-media-pipelines, chime-sdk-meetings, chime-sdk-messaging, chime-sdk-voice, cleanrooms, cleanroomsml, cloud9, cloudcontrol, clouddirectory, cloudformation, cloudfront, cloudfront-keyvaluestore, cloudhsm, cloudhsmv2, cloudsearch, cloudsearchdomain, cloudtrail, cloudtrail-data, cloudwatch, codeartifact, codebuild, codecatalyst, codecommit, codeconnections, codedeploy, codeguru-reviewer, codeguru-security, codeguruprofiler, codepipeline, codestar-connections, codestar-notifications, cognito-identity, cognito-idp, cognito-sync, comprehend, comprehendmedical, compute-optimizer, config, connect, connect-contact-lens, connectcampaigns, connectcampaignsv2, connectcases, connectparticipant, controlcatalog, controltower, cost-optimization-hub, cur, customer-profiles, databrew, dataexchange, datapipeline, datasync, datazone, dax, deadline, detective, devicefarm, devops-guru, directconnect, discovery, dlm, dms, docdb, docdb-elastic, drs, ds, ds-data, dsql, dynamodb, dynamodbstreams, ebs, ec2, ec2-instance-connect, ecr, ecr-public, ecs, efs, eks, eks-auth, elasticache, elasticbeanstalk, elastictranscoder, elb, elbv2, emr, emr-containers, emr-serverless, entityresolution, es, events, evidently, finspace, finspace-data, firehose, fis, fms, forecast, forecastquery, frauddetector, freetier, fsx, gamelift, gameliftstreams, geo-maps, geo-places, geo-routes, glacier, globalaccelerator, glue, grafana, greengrass, greengrassv2, groundstation, guardduty, health, healthlake, iam, identitystore, imagebuilder, importexport, inspector, inspector-scan, inspector2, internetmonitor, invoicing, iot, iot-data, iot-jobs-data, iot-managed-integrations, iotanalytics, iotdeviceadvisor, iotevents, iotevents-data, iotfleethub, iotfleetwise, iotsecuretunneling, iotsitewise, iotthingsgraph, iottwinmaker, iotwireless, ivs, ivs-realtime, ivschat, kafka, kafkaconnect, kendra, kendra-ranking, keyspaces, kinesis, kinesis-video-archived-media, kinesis-video-media, kinesis-video-signaling, kinesis-video-webrtc-storage, kinesisanalytics, kinesisanalyticsv2, kinesisvideo, kms, lakeformation, lambda, launch-wizard, lex-models, lex-runtime, lexv2-models, lexv2-runtime, license-manager, license-manager-linux-subscriptions, license-manager-user-subscriptions, lightsail, location, logs, lookoutequipment, lookoutmetrics, lookoutvision, m2, machinelearning, macie2, mailmanager, managedblockchain, managedblockchain-query, marketplace-agreement, marketplace-catalog, marketplace-deployment, marketplace-entitlement, marketplace-reporting, marketplacecommerceanalytics, mediaconnect, mediaconvert, medialive, mediapackage, mediapackage-vod, mediapackagev2, mediastore, mediastore-data, mediatailor, medical-imaging, memorydb, meteringmarketplace, mgh, mgn, migration-hub-refactor-spaces, migrationhub-config, migrationhuborchestrator, migrationhubstrategy, mq, mturk, mwaa, neptune, neptune-graph, neptunedata, network-firewall, networkflowmonitor, networkmanager, networkmonitor, notifications, notificationscontacts, oam, observabilityadmin, omics, opensearch, opensearchserverless, opsworks, opsworkscm, organizations, osis, outposts, panorama, partnercentral-selling, payment-cryptography, payment-cryptography-data, pca-connector-ad, pca-connector-scep, pcs, personalize, personalize-events, personalize-runtime, pi, pinpoint, pinpoint-email, pinpoint-sms-voice, pinpoint-sms-voice-v2, pipes, polly, pricing, privatenetworks, proton, qapps, qbusiness, qconnect, qldb, qldb-session, quicksight, ram, rbin, rds, rds-data, redshift, redshift-data, redshift-serverless, rekognition, repostspace, resiliencehub, resource-explorer-2, resource-groups, resourcegroupstaggingapi, robomaker, rolesanywhere, route53, route53-recovery-cluster, route53-recovery-control-config, route53-recovery-readiness, route53domains, route53profiles, route53resolver, rum, s3, s3control, s3outposts, s3tables, sagemaker, sagemaker-a2i-runtime, sagemaker-edge, sagemaker-featurestore-runtime, sagemaker-geospatial, sagemaker-metrics, sagemaker-runtime, savingsplans, scheduler, schemas, sdb, secretsmanager, security-ir, securityhub, securitylake, serverlessrepo, service-quotas, servicecatalog, servicecatalog-appregistry, servicediscovery, ses, sesv2, shield, signer, simspaceweaver, sms, sms-voice, snow-device-management, snowball, sns, socialmessaging, sqs, ssm, ssm-contacts, ssm-guiconnect, ssm-incidents, ssm-quicksetup, ssm-sap, sso, sso-admin, sso-oidc, stepfunctions, storagegateway, sts, supplychain, support, support-app, swf, synthetics, taxsettings, textract, timestream-influxdb, timestream-query, timestream-write, tnb, transcribe, transfer, translate, trustedadvisor, verifiedpermissions, voice-id, vpc-lattice, waf, waf-regional, wafv2, wellarchitected, wisdom, workdocs, workmail, workmailmessageflow, workspaces, workspaces-thin-client, workspaces-web, xray
+✅ Unified FastAPI backend for Ray and Spark
+✓ Ray Supervisor ARN: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/supervisor_agent-caFwzSALky
+✓ Spark Supervisor ARN: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/spark_supervisor_agent-EZPQeDGCjR
+✓ Ray Private IP: 172.31.4.12
+✓ Ray Public IP: 100.27.32.218
+✓ S3 Bucket: strands-ray-data
+✓ MCP Gateway: https://ray-validation-gateway-e9r35gofyj.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp
+🎨 Starting frontend...
+
+✅ Ray Code Interpreter started!
+   Backend: http://localhost:8000
+   Frontend: http://localhost:3000
+   Ray Dashboard: http://100.27.32.218:8265
+
+Press Ctrl+C to stop
+
+INFO:     Stopping reloader process [43400]
