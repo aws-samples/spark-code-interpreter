@@ -17,24 +17,65 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
 
 ### Solution Flow
 
-1. **Natural Language Prompt** -- User asks a question via the React UI: *"Show me total sales by region over the last 12 months."*
-2. **Bedrock Code Generation** -- Amazon Bedrock (Claude) generates a PySpark script based on the prompt, dataset schema, and historical context.
-3. **Fast Validation Loop** -- Generated code runs on **SoAL** to validate syntax and logic (~550 ms). Errors are fed back to the model for repair, iterating until success.
-4. **Production Execution** -- Once validated, the same PySpark script executes on **EMR Serverless** against the full dataset.
-5. **Results & Visualization** -- Results are returned to the React UI as tables and charts.
+1. **Authenticate** -- User authenticates via Amazon Cognito and receives a JWT token with the `spark-api/spark.execute` scope.
+2. **Natural Language Prompt** -- User asks a question via the React UI: *"Show me total sales by region over the last 12 months."*
+3. **Gateway Authorization** -- The AgentCore Gateway validates the JWT and evaluates **Cedar authorization policies** to confirm the caller is permitted to invoke the agent and access the requested data sources.
+4. **Bedrock Code Generation** -- Amazon Bedrock (Claude) generates a PySpark script based on the prompt, dataset schema, and historical context.
+5. **Cedar Policy Check** -- Before execution, Cedar policies verify the generated code does not contain destructive operations (DROP, DELETE, TRUNCATE) and that the target S3 buckets are project-tagged.
+6. **Fast Validation Loop** -- Generated code runs on **SoAL** to validate syntax and logic (~550 ms). Errors are fed back to the model for repair, iterating until success.
+7. **Production Execution** -- Once validated, the same PySpark script executes on **EMR Serverless** against the full dataset. The agent authenticates to downstream services (S3, Glue, Lambda, EMR) using scoped **IAM execution roles** -- no long-lived credentials.
+8. **Results & Visualization** -- Results are returned to the React UI as tables and charts.
+9. **Audit & Monitoring** -- Every step is captured by **CloudTrail** (agent invocations, model calls, data access). **EventBridge** rules fire alerts on failures, throttling, or unauthorized access attempts.
+
+### Security Layers
+
+```
+                          ┌─────────────────────────────────────────────┐
+                          │              Monitoring & Audit             │
+                          │   CloudTrail ─── EventBridge ─── SNS/Ops   │
+                          └──────────────────┬──────────────────────────┘
+                                             │ logs every call
+  ┌──────────┐    JWT     ┌──────────────────▼──────────────────┐
+  │  Cognito  │──────────▶│       AgentCore Gateway             │
+  │ User Pool │  (scope:  │  ┌────────────────────────────┐     │
+  └──────────┘  spark.    │  │   Cedar Authorization      │     │
+                execute)  │  │   Policies                  │     │
+                          │  │  • Session-scoped access    │     │
+                          │  │  • Deny destructive SQL     │     │
+                          │  │  • S3 bucket tag checks     │     │
+                          │  │  • Validated-code-only EMR  │     │
+                          │  └────────────────────────────┘     │
+                          └──────────────────┬──────────────────┘
+                                             │
+                          ┌──────────────────▼──────────────────┐
+                          │      Spark Supervisor Agent          │
+                          │      (IAM execution role)            │
+                          └──┬────────┬────────┬────────┬───────┘
+                             │        │        │        │
+                          ┌──▼──┐  ┌──▼──┐  ┌──▼──┐  ┌─▼────┐
+                          │ S3  │  │Glue │  │ SoAL│  │ EMR  │
+                          │(IAM)│  │(IAM)│  │(IAM)│  │(IAM) │
+                          └─────┘  └─────┘  └─────┘  └──────┘
+                          Scoped to bucket  Scoped    Scoped to
+                          + prefix          to DB     application
+```
 
 ### Key Components
 
 | Component | Purpose | Details |
 |-----------|---------|---------|
-| **AgentCore Runtime** | Agent + tool hosting | Runs the Spark orchestrator agent and its tools inside AgentCore. |
-| **Spark Orchestrator Agent** | End-to-end workflow | Orchestrates: read data, generate PySpark, execute via Spark-code-interpreter, format results. |
-| **Data Read Tool** | Dataset access | Reads from S3 / Glue catalog (extensible to Snowflake, Databricks via MCP). |
+| **Amazon Cognito** | Inbound authentication | User pool with JWT tokens and `spark-api/spark.execute` OAuth scope. Rejects unauthenticated requests at the gateway. |
+| **Cedar Policies** | Agent authorization | Declarative rules evaluated before tool execution: session scoping, destructive-operation denial, S3 tag checks, validated-code gating. |
+| **AgentCore Runtime** | Agent + tool hosting | Runs the Spark orchestrator agent and its tools inside AgentCore with scoped IAM execution roles. |
+| **Spark Orchestrator Agent** | End-to-end workflow | Orchestrates: read data, generate PySpark, execute via Spark-code-interpreter, format results. Authenticates to downstream services via IAM roles. |
+| **Data Read Tool** | Dataset access | Reads from S3 / Glue catalog (extensible to Snowflake, Databricks via MCP). IAM-scoped to tagged resources. |
 | **Code Generation Tool** | PySpark generation | Generates or refines PySpark based on user request and schema metadata. |
-| **Spark-code-interpreter Tool** | Code validation | Interprets generated code, iteratively fixes errors. |
+| **Spark-code-interpreter Tool** | Code validation | Interprets generated code, iteratively fixes errors. Cedar policies block destructive operations. |
 | **Result Generation Tool** | User-friendly output | Aggregates Spark results into tables, charts, and natural-language summaries. |
-| **User Interface (React + FastAPI)** | Frontend & API | React frontend and FastAPI backend that collect queries, invoke AgentCore, and render results. |
-| **AWS Services** | Infrastructure | S3, EMR Serverless, Lambda, CloudWatch, Cognito for storage, compute, and observability. |
+| **User Interface (React + FastAPI)** | Frontend & API | React frontend and FastAPI backend that collect queries, validate JWT, invoke AgentCore, and render results. |
+| **CloudTrail** | Audit trail | Captures all API calls across AgentCore, Bedrock, Lambda, EMR, S3, and Secrets Manager. Insights detect anomalies. |
+| **EventBridge** | Real-time alerts | Rules trigger on agent failures, EMR job failures, Lambda throttling, and unauthorized access. Routes to SNS for ops notifications. |
+| **AWS Services** | Infrastructure | S3, EMR Serverless, Lambda, CloudWatch, VPC for storage, compute, and network isolation. |
 
 ---
 
@@ -49,7 +90,18 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
   - CSV upload to S3
   - Code editor with syntax highlighting (Monaco)
   - Tabular result visualization
-- **Security:** scoped IAM roles, VPC-enabled execution, JWT auth via Cognito
+- **Security & governance:**
+  - Inbound authentication via Amazon Cognito JWT with custom OAuth scopes (`spark-api/spark.execute`)
+  - Cedar authorization policies on AgentCore -- session scoping, destructive-operation denial, S3 tag checks, validated-code gating for EMR
+  - Least-privilege IAM execution roles per agent and downstream service (S3, Glue, Lambda, EMR)
+  - Outbound auth to all downstream services via short-lived IAM role credentials -- no stored secrets
+  - VPC-enabled execution with private S3 access
+  - Code review in UI before execution; Cedar blocks DROP/DELETE/TRUNCATE at the agent level
+- **Observability & alerting:**
+  - CloudTrail audit trail across AgentCore, Bedrock, Lambda, EMR, S3, and Secrets Manager
+  - CloudTrail Insights for anomaly detection (API call rate and error rate spikes)
+  - EventBridge rules for real-time alerts: agent failures, EMR job failures, Lambda throttling, unauthorized access
+  - SNS notifications to ops teams on critical events
 - **Cost-effective:** pay only for compute time; reuse PySpark scripts across SoAL, EMR, and Glue
 
 ---
@@ -224,30 +276,322 @@ Show total revenue, top 3 products, and year-over-year growth."
 
 ## Security Best Practices
 
-### IAM Least Privilege
+### 1. IAM Least-Privilege Policies
 
-Scope S3 policies to specific bucket prefixes:
+Every component runs with the minimum permissions required. No shared admin roles.
+
+**Spark Lambda execution role** -- scoped to the specific S3 bucket and prefix:
 
 ```json
 {
-  "Effect": "Allow",
-  "Action": ["s3:GetObject", "s3:ListBucket"],
-  "Resource": [
-    "arn:aws:s3:::my-spark-data-bucket/datasets/*",
-    "arn:aws:s3:::my-spark-data-bucket"
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3DataAccess",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:ListBucket"],
+      "Resource": [
+        "arn:aws:s3:::spark-data-${AccountId}-${Region}",
+        "arn:aws:s3:::spark-data-${AccountId}-${Region}/*"
+      ]
+    }
   ]
 }
 ```
 
-### VPC Configuration
+**AgentCore runtime role** -- only invoke specific agents and access specific models:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "InvokeAgents",
+      "Effect": "Allow",
+      "Action": ["bedrock-agentcore:InvokeAgentRuntime"],
+      "Resource": [
+        "arn:aws:bedrock-agentcore:${Region}:${AccountId}:runtime/spark_supervisor_agent-*",
+        "arn:aws:bedrock-agentcore:${Region}:${AccountId}:runtime/code_generation_agent-*"
+      ]
+    },
+    {
+      "Sid": "InvokeModels",
+      "Effect": "Allow",
+      "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+      "Resource": "arn:aws:bedrock:${Region}::foundation-model/anthropic.claude-*"
+    }
+  ]
+}
+```
+
+**EMR Serverless execution role** -- scoped to the specific application and S3 paths:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EMRJobExecution",
+      "Effect": "Allow",
+      "Action": [
+        "emr-serverless:StartJobRun",
+        "emr-serverless:GetJobRun",
+        "emr-serverless:CancelJobRun"
+      ],
+      "Resource": "arn:aws:emr-serverless:${Region}:${AccountId}:/applications/${ApplicationId}/*"
+    },
+    {
+      "Sid": "GlueCatalogRead",
+      "Effect": "Allow",
+      "Action": ["glue:GetDatabase*", "glue:GetTable*", "glue:GetPartition*"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {"glue:ResourceTag/Project": "bluebear"}
+      }
+    }
+  ]
+}
+```
+
+### 2. Inbound Authentication (Callers → AgentCore)
+
+All inbound requests to the AgentCore gateway are authenticated via **Amazon Cognito JWT tokens** with custom OAuth scopes.
+
+**Cognito configuration** (defined in `cloudformation/spark-complete-stack.yml`):
+
+- **User Pool** with password policies and MFA support
+- **Resource Server** defining the `spark-api` scope namespace
+- **Custom scope**: `spark-api/spark.execute` -- only users granted this scope can invoke the agent
+- **App Client** with client credentials grant for service-to-service calls
+
+**Request flow:**
+
+```
+Client → Cognito (authenticate) → JWT token with spark-api/spark.execute scope
+      → AgentCore Gateway (validates JWT, checks scope)
+      → Spark Supervisor Agent
+```
+
+The FastAPI backend validates the JWT before forwarding to AgentCore. Unauthenticated requests are rejected at the gateway level.
+
+### 3. Outbound Authentication (AgentCore → Downstream Services)
+
+AgentCore agents authenticate to downstream AWS services using **IAM execution roles** attached to the agent runtime. No long-lived credentials are stored.
+
+| Agent → Service | Auth Method |
+|----------------|-------------|
+| Supervisor Agent → Code Gen Agent | IAM role (bedrock-agentcore:InvokeAgentRuntime) |
+| Supervisor Agent → Spark Lambda | IAM role (lambda:InvokeFunction) |
+| Supervisor Agent → EMR Serverless | IAM role (emr-serverless:StartJobRun) |
+| Supervisor Agent → S3 | IAM role (s3:GetObject, s3:PutObject) |
+| Supervisor Agent → Glue Catalog | IAM role (glue:GetTable, glue:GetDatabase) |
+| Supervisor Agent → Secrets Manager | IAM role (secretsmanager:GetSecretValue) for PostgreSQL credentials |
+| Supervisor Agent → Bedrock Models | IAM role (bedrock:InvokeModel) |
+
+Each agent runtime has its own IAM role. The Spark Supervisor Agent role cannot access resources outside its designated S3 bucket, Glue databases, or specific Lambda functions.
+
+### 4. Cedar Authorization Policies for AgentCore
+
+Use **Cedar policies** to define fine-grained authorization rules for what the agent can and cannot do. Cedar policies are evaluated by AgentCore before tool execution, providing a declarative authorization layer beyond IAM.
+
+**Policy: Allow Spark code execution only for authorized sessions**
+
+```cedar
+permit (
+  principal == AgentCore::Agent::"spark_supervisor_agent",
+  action == AgentCore::Action::"InvokeTool",
+  resource == AgentCore::Tool::"spark_code_interpreter"
+) when {
+  context.session_id.isValid() &&
+  context.execution_platform in ["lambda", "emr"]
+};
+```
+
+**Policy: Deny access to production EMR for non-validated code**
+
+```cedar
+forbid (
+  principal == AgentCore::Agent::"spark_supervisor_agent",
+  action == AgentCore::Action::"InvokeTool",
+  resource == AgentCore::Tool::"emr_execution"
+) when {
+  context.code_validated == false
+};
+```
+
+**Policy: Restrict S3 data access to project-tagged buckets**
+
+```cedar
+permit (
+  principal == AgentCore::Agent::"spark_supervisor_agent",
+  action == AgentCore::Action::"InvokeTool",
+  resource == AgentCore::Tool::"data_read"
+) when {
+  resource.s3_bucket.hasTag("Project", "bluebear")
+};
+```
+
+**Policy: Deny destructive operations**
+
+```cedar
+forbid (
+  principal is AgentCore::Agent,
+  action == AgentCore::Action::"InvokeTool",
+  resource == AgentCore::Tool::"spark_code_interpreter"
+) when {
+  context.spark_code.contains("DROP TABLE") ||
+  context.spark_code.contains("DELETE FROM") ||
+  context.spark_code.contains("TRUNCATE")
+};
+```
+
+Cedar policies are stored alongside the agent configuration and evaluated at runtime. They provide deterministic, auditable authorization that complements IAM roles.
+
+### 5. CloudTrail for Workload Monitoring
+
+Enable **AWS CloudTrail** to capture all API calls made by the agents and infrastructure. This provides a complete audit trail of who invoked what, when, and with what parameters.
+
+**Enable CloudTrail for AgentCore, Lambda, and EMR:**
+
+```bash
+aws cloudtrail create-trail \
+  --name spark-code-interpreter-trail \
+  --s3-bucket-name my-cloudtrail-bucket \
+  --is-multi-region-trail \
+  --enable-log-file-validation
+
+aws cloudtrail start-logging --name spark-code-interpreter-trail
+```
+
+**Key events to monitor:**
+
+| Event Source | Event Name | What It Captures |
+|-------------|------------|-----------------|
+| `bedrock-agentcore.amazonaws.com` | `InvokeAgentRuntime` | Every agent invocation (prompt, session, duration) |
+| `bedrock.amazonaws.com` | `InvokeModel` | Every model call (model ID, token count) |
+| `lambda.amazonaws.com` | `Invoke` | Every Spark Lambda execution |
+| `emr-serverless.amazonaws.com` | `StartJobRun` | Every EMR job submission |
+| `s3.amazonaws.com` | `PutObject`, `GetObject` | Data access patterns |
+| `secretsmanager.amazonaws.com` | `GetSecretValue` | Credential access for PostgreSQL |
+
+**CloudTrail Insights** -- enable anomaly detection to flag unusual patterns:
+
+```bash
+aws cloudtrail put-insight-selectors \
+  --trail-name spark-code-interpreter-trail \
+  --insight-selectors '[{"InsightType": "ApiCallRateInsight"}, {"InsightType": "ApiErrorRateInsight"}]'
+```
+
+This automatically detects spikes in agent invocations or error rates.
+
+### 6. EventBridge for Critical Alerts
+
+Configure **Amazon EventBridge** rules to trigger alerts when critical events occur. This enables real-time monitoring of agent health, failures, and security anomalies.
+
+**Rule 1: Agent invocation failures**
+
+```json
+{
+  "source": ["aws.bedrock-agentcore"],
+  "detail-type": ["AgentCore Agent Runtime Invocation"],
+  "detail": {
+    "errorCode": [{"exists": true}]
+  }
+}
+```
+
+```bash
+aws events put-rule \
+  --name spark-agent-invocation-failures \
+  --event-pattern '{
+    "source": ["aws.bedrock-agentcore"],
+    "detail-type": ["AWS API Call via CloudTrail"],
+    "detail": {
+      "eventSource": ["bedrock-agentcore.amazonaws.com"],
+      "eventName": ["InvokeAgentRuntime"],
+      "errorCode": [{"exists": true}]
+    }
+  }'
+```
+
+**Rule 2: EMR Serverless job failures**
+
+```bash
+aws events put-rule \
+  --name spark-emr-job-failures \
+  --event-pattern '{
+    "source": ["aws.emr-serverless"],
+    "detail-type": ["EMR Serverless Job Run State Change"],
+    "detail": {
+      "state": ["FAILED", "CANCELLED"]
+    }
+  }'
+```
+
+**Rule 3: Lambda throttling or errors**
+
+```bash
+aws events put-rule \
+  --name spark-lambda-errors \
+  --event-pattern '{
+    "source": ["aws.lambda"],
+    "detail-type": ["AWS API Call via CloudTrail"],
+    "detail": {
+      "eventSource": ["lambda.amazonaws.com"],
+      "eventName": ["Invoke"],
+      "errorCode": ["TooManyRequestsException", "ServiceException"]
+    }
+  }'
+```
+
+**Rule 4: Unauthorized access attempts**
+
+```bash
+aws events put-rule \
+  --name spark-unauthorized-access \
+  --event-pattern '{
+    "source": ["aws.bedrock-agentcore"],
+    "detail-type": ["AWS API Call via CloudTrail"],
+    "detail": {
+      "errorCode": ["AccessDeniedException", "UnauthorizedException"]
+    }
+  }'
+```
+
+**Route alerts to SNS for notifications:**
+
+```bash
+# Create SNS topic
+aws sns create-topic --name spark-agent-alerts
+aws sns subscribe --topic-arn arn:aws:sns:us-east-1:${ACCOUNT_ID}:spark-agent-alerts \
+  --protocol email --notification-endpoint ops-team@example.com
+
+# Attach to all EventBridge rules
+for rule in spark-agent-invocation-failures spark-emr-job-failures spark-lambda-errors spark-unauthorized-access; do
+  aws events put-targets --rule $rule \
+    --targets "Id=sns-target,Arn=arn:aws:sns:us-east-1:${ACCOUNT_ID}:spark-agent-alerts"
+done
+```
+
+**Summary of alert coverage:**
+
+| Alert | Trigger | Severity |
+|-------|---------|----------|
+| Agent invocation failure | Any AgentCore error | High |
+| EMR job failure | Job state = FAILED or CANCELLED | High |
+| Lambda throttling | TooManyRequestsException | Medium |
+| Unauthorized access | AccessDeniedException on any agent endpoint | Critical |
+| CloudTrail anomaly | Unusual API call rate spike (via Insights) | Medium |
+
+### 7. VPC Configuration
 
 Deploy SoAL and EMR Serverless in a VPC for private S3 access. The CloudFormation stack supports VPC parameters (`VpcId`, `PrivateSubnetIds`).
 
-### Code Review
+### 8. Code Review
 
 The React UI allows users to review generated PySpark before execution, approve or reject operations, and export code for audit.
 
-### Encryption
+### 9. Encryption
 
 All data in transit uses TLS. Enable S3 default encryption and EMRFS encryption for data at rest.
 
