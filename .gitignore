@@ -2,6 +2,11 @@
 docs/
 archive/
 
+# Test/verification files
+sample_sales_data.csv
+verify-fixes.sh
+verify_output_fix.py
+
 # Log files
 *.log
 deployment*.log
