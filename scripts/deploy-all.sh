@@ -106,47 +106,7 @@ if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Spark Supervisor Agent deployment failed${NC}"
     exit 1
 fi
-echo -e "${GREEN}✅ Spark Supervisor Agent deployed${NC}"
-echo ""
-
-# Add EMR permissions to the agent's execution role
-echo -e "${YELLOW}Adding EMR permissions to agent execution role...${NC}"
-AGENT_ROLE=$(grep "execution_role:" .bedrock_agentcore.yaml | head -1 | awk '{print $2}' | sed 's/arn:aws:iam::[0-9]*:role\///')
-if [ -n "$AGENT_ROLE" ]; then
-    cat > /tmp/emr-policy.json <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "emr-serverless:StartJobRun",
-        "emr-serverless:GetJobRun",
-        "emr-serverless:CancelJobRun",
-        "emr-serverless:ListJobRuns"
-      ],
-      "Resource": "arn:aws:emr-serverless:${REGION}:${ACCOUNT_ID}:*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "iam:PassRole"
-      ],
-      "Resource": "arn:aws:iam::${ACCOUNT_ID}:role/${ENVIRONMENT}-spark-emr-execution-role"
-    }
-  ]
-}
-EOF
-    aws iam put-role-policy \
-      --role-name "$AGENT_ROLE" \
-      --policy-name "EMRServerlessStartJobPolicy" \
-      --policy-document file:///tmp/emr-policy.json \
-      --no-cli-pager > /dev/null 2>&1
-    rm /tmp/emr-policy.json
-    echo -e "${GREEN}✅ EMR permissions added${NC}"
-else
-    echo -e "${YELLOW}⚠️  Could not determine agent role, skipping EMR permissions${NC}"
-fi
+echo -e "${GREEN}✅ Spark Supervisor Agent deployed (with IAM permissions)${NC}"
 echo ""
 
 # Wait for agent to be ready
@@ -174,7 +134,7 @@ if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Code Generation Agent deployment failed${NC}"
     exit 1
 fi
-echo -e "${GREEN}✅ Code Generation Agent deployed${NC}"
+echo -e "${GREEN}✅ Code Generation Agent deployed (with IAM permissions)${NC}"
 echo ""
 
 # Wait for agent to be ready
@@ -213,13 +173,14 @@ cd "$PROJECT_ROOT"
 
 ECR_REPO_NAME="${ENVIRONMENT}-spark-lambda"
 
-# Create ECR repository if needed
-echo -e "${YELLOW}Creating ECR repository...${NC}"
-if ! aws ecr describe-repositories --repository-names $ECR_REPO_NAME --region $REGION --no-cli-pager 2>&1 | grep -q "$ECR_REPO_NAME"; then
-    echo "Repository doesn't exist, creating..."
-    aws ecr create-repository --repository-name $ECR_REPO_NAME --region $REGION --no-cli-pager 2>&1 | head -5 || true
+# Check if ECR repository exists (CloudFormation should have created it)
+echo -e "${YELLOW}Checking ECR repository...${NC}"
+if aws ecr describe-repositories --repository-names $ECR_REPO_NAME --region $REGION --no-cli-pager 2>/dev/null; then
+    echo "Repository exists (created by CloudFormation or previous deployment)"
 else
-    echo "Repository already exists"
+    echo -e "${YELLOW}⚠️  ECR repository not found. Creating manually...${NC}"
+    echo "   (Note: CloudFormation should create this, but creating as fallback)"
+    aws ecr create-repository --repository-name $ECR_REPO_NAME --region $REGION --no-cli-pager 2>&1 | head -5 || true
 fi
 echo -e "${GREEN}✅ ECR repository ready${NC}"
 echo ""
@@ -238,9 +199,10 @@ echo ""
 # Build and push with buildx
 IMAGE_URI="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$ECR_REPO_NAME:latest"
 
-echo -e "${YELLOW}Building Docker image (this may take 5-10 minutes)...${NC}"
+echo -e "${YELLOW}Building Docker image with --no-cache (this may take 5-10 minutes)...${NC}"
 echo "Platform: linux/amd64 (Lambda requirement)"
-echo "Includes: S3 write fix (JAR classpath)"
+echo "Includes: S3 write fix (hadoop-aws-3.3.4.jar + aws-java-sdk-bundle-1.12.261.jar)"
+echo "Note: Using --no-cache to ensure fresh JAR downloads"
 echo ""
 
 # Ensure buildx builder exists
@@ -248,13 +210,14 @@ docker buildx create --use --name lambda-builder 2>/dev/null || docker buildx us
 
 docker buildx build \
     --platform linux/amd64 \
+    --no-cache \
     --build-arg FRAMEWORK="" \
     --build-arg AWS_REGION=$REGION \
     -t $IMAGE_URI \
     --push \
     --provenance=false \
     --sbom=false \
-    Docker/ 2>&1 | grep -E "(#|=>|ERROR|error|Writing|Pushing)" | tail -30
+    Docker/ 2>&1 | grep -E "(#|=>|ERROR|error|Writing|Pushing|✓|✗|VERIFICATION)" | tail -50
 
 if [ ${PIPESTATUS[0]} -ne 0 ]; then
     echo -e "${RED}❌ Docker build failed${NC}"

@@ -255,7 +255,135 @@ COMMON SPARK PATTERNS:
 - Selecting: df.select("col1", "col2", col("col3").alias("new_name"))
 - Creating arrays: df.withColumn("new_col", array(lit(val1), lit(val2)))
 
-Return only executable Python code with intelligent column matching."""
+CRITICAL - OUTPUT FILE REQUIREMENTS (MANDATORY):
+The Lambda execution environment REQUIRES your code to write results to /tmp/output.json.
+This is ABSOLUTELY MANDATORY - code will fail without it.
+
+YOU MUST ALWAYS:
+1. Import json at the top: import json
+2. Write output before spark.stop()
+3. Use appropriate strategy based on result size
+
+OUTPUT STRATEGY - Choose based on query type and expected result size:
+
+STRATEGY 1 - SIMPLE CALCULATIONS (no DataFrame, just math):
+Use when: User asks "what is X + Y", "calculate X * Y", simple arithmetic
+Example: "What is 7 times 10?"
+
+import json
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("SimpleCalc").getOrCreate()
+
+# Perform calculation
+result = 7 * 10
+
+# MANDATORY: Write output file
+output = {"status": "success", "result": result}
+with open('/tmp/output.json', 'w') as f:
+    json.dump(output, f)
+
+spark.stop()
+
+STRATEGY 2 - SMALL RESULTS (aggregations, top N, summaries - typically < 1000 rows):
+Use when: "top 10", "group by and count", "summarize by", "average by category"
+Example: "Show me top 10 homes by price" or "Group by category and count"
+
+import json
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+
+spark = SparkSession.builder.appName("SmallQuery").getOrCreate()
+
+# Read data and perform analysis
+df = spark.read.option("header", "true").csv("s3://bucket/data.csv")
+result_df = df.orderBy(col("price").desc()).limit(10)
+
+# Collect results (safe for small datasets)
+results = result_df.collect()
+
+# MANDATORY: Write output file
+output = {
+    "status": "success",
+    "row_count": len(results),
+    "data": [row.asDict() for row in results]
+}
+with open('/tmp/output.json', 'w') as f:
+    json.dump(output, f)
+
+spark.stop()
+
+STRATEGY 3 - LARGE RESULTS (full datasets, all rows - potentially > 1000 rows):
+Use when: "give me all rows", "show me the entire dataset", "filter and return all matching"
+Example: "Give me all rows grouped by category"
+
+import json
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+
+spark = SparkSession.builder.appName("LargeQuery").getOrCreate()
+
+# Read data and perform analysis
+df = spark.read.option("header", "true").csv("s3://bucket/data.csv")
+result_df = df.groupBy("category").count()
+
+# Check result size
+row_count = result_df.count()
+
+if row_count <= 1000:
+    # Small enough to return directly
+    results = result_df.collect()
+    output = {
+        "status": "success",
+        "row_count": row_count,
+        "data": [row.asDict() for row in results]
+    }
+else:
+    # Large result - write to S3, return sample
+    s3_output_path = "s3://bucket/output/results.csv"  # Use from context if provided
+    result_df.write.mode("overwrite").option("header", "true").csv(s3_output_path)
+    
+    # Get sample for preview
+    sample = result_df.limit(100).collect()
+    
+    output = {
+        "status": "success",
+        "row_count": row_count,
+        "s3_output_path": s3_output_path,
+        "sample_data": [row.asDict() for row in sample],
+        "message": f"Large dataset ({row_count} rows) written to S3. Sample of 100 rows included."
+    }
+
+# MANDATORY: Write output file
+with open('/tmp/output.json', 'w') as f:
+    json.dump(output, f)
+
+spark.stop()
+
+QUERY TYPE DETECTION GUIDE:
+- "What is X + Y" / "Calculate X * Y" → STRATEGY 1 (Simple calculation)
+- "Top 10/20/N" → STRATEGY 2 (Small result)
+- "Group by X and count/sum/avg" → STRATEGY 2 (Usually small)
+- "Summarize by X" → STRATEGY 2 (Small result)
+- "Show me all rows" / "Give me the entire dataset" → STRATEGY 3 (Check size)
+- "Filter by X and return all" → STRATEGY 3 (Check size)
+
+MANDATORY RULES FOR OUTPUT FILE:
+1. ALWAYS import json at the top of your code
+2. ALWAYS write /tmp/output.json before spark.stop()
+3. For DataFrames: Check row_count if size is uncertain
+4. If row_count > 1000 AND s3_output_path is in context: Write to S3, return sample
+5. If row_count > 1000 AND no s3_output_path: Collect first 1000 rows only with warning
+6. ALWAYS include row_count in output for transparency
+7. For large results: ALWAYS include sample_data (limit 100 rows)
+
+ABSOLUTELY FORBIDDEN:
+- DO NOT skip writing /tmp/output.json (code will fail)
+- DO NOT try to return millions of rows in output.json (Lambda has 6MB limit)
+- DO NOT use .collect() on large DataFrames without checking count first
+- DO NOT write to S3 if s3_output_path is not provided in context
+
+Return only executable Python code with intelligent column matching and MANDATORY output file writing."""
 
     # Build context
     data_context = ""
@@ -413,6 +541,13 @@ def validate_spark_code(spark_code: str, s3_input_path: str = None, selected_tab
     if 'SparkSession' not in spark_code:
         validation_errors.append("Code must create a SparkSession")
     
+    # CRITICAL: Output file validation
+    if '/tmp/output.json' not in spark_code:
+        validation_errors.append("Code must write results to /tmp/output.json (MANDATORY for Lambda execution)")
+    
+    if 'import json' not in spark_code and '/tmp/output.json' in spark_code:
+        validation_errors.append("Code must import json module to write output file")
+    
     # Glue-specific validation
     if is_glue:
         if not any(f'spark.table(' in spark_code for table in (selected_tables or [])):
@@ -428,8 +563,8 @@ def validate_spark_code(spark_code: str, s3_input_path: str = None, selected_tab
     
     # Output validation - allow display-only operations
     has_display = any(x in spark_code for x in ['.show(', '.printSchema(', 'print('])
-    if '.write' not in spark_code and not has_display:
-        validation_errors.append("Code should write results to S3 or display data")
+    if '.write' not in spark_code and not has_display and '/tmp/output.json' not in spark_code:
+        validation_errors.append("Code should write results to S3, display data, or write output file")
     
     return {
         'status': 'success' if not validation_errors else 'validation_failed',
@@ -437,6 +572,69 @@ def validate_spark_code(spark_code: str, s3_input_path: str = None, selected_tab
         'validation_errors': validation_errors,
         'spark_code': spark_code
     }
+
+@tool
+def ensure_output_file_writing(spark_code: str, s3_output_path: str = None) -> str:
+    """Ensure generated Spark code writes /tmp/output.json (Safety net)
+    
+    This is a fallback tool that injects output file writing if the code generation
+    agent forgot to include it. Ideally, the agent should generate correct code,
+    but this provides a safety net.
+    
+    Args:
+        spark_code: Generated Spark code
+        s3_output_path: S3 output path (optional)
+    
+    Returns:
+        Modified code with output file writing guaranteed
+    """
+    import re
+    
+    # Check if code already writes output.json
+    if '/tmp/output.json' in spark_code:
+        return spark_code  # Already has output writing
+    
+    print("⚠️ WARNING: Generated code missing /tmp/output.json - injecting safety net")
+    
+    # Ensure json import exists
+    if 'import json' not in spark_code:
+        # Add after other imports
+        lines = spark_code.split('\n')
+        import_index = 0
+        for i, line in enumerate(lines):
+            if line.startswith('import ') or line.startswith('from '):
+                import_index = i + 1
+        lines.insert(import_index, 'import json')
+        spark_code = '\n'.join(lines)
+    
+    # Find where to inject output code (before spark.stop())
+    if 'spark.stop()' in spark_code:
+        # Inject before spark.stop()
+        output_code = '''
+# SAFETY NET: Write output to JSON file (required by Lambda handler)
+output = {
+    "status": "success",
+    "message": "Execution completed. Check logs for results."
+}
+with open('/tmp/output.json', 'w') as f:
+    json.dump(output, f)
+
+'''
+        spark_code = spark_code.replace('spark.stop()', output_code + 'spark.stop()')
+    else:
+        # Append at end
+        output_code = '''
+# SAFETY NET: Write output to JSON file (required by Lambda handler)
+output = {
+    "status": "success",
+    "message": "Execution completed. Check logs for results."
+}
+with open('/tmp/output.json', 'w') as f:
+    json.dump(output, f)
+'''
+        spark_code += '\n' + output_code
+    
+    return spark_code
 
 @tool
 def execute_spark_code_lambda(spark_code: str, s3_output_path: str) -> dict:
@@ -467,7 +665,7 @@ def execute_spark_code_lambda(spark_code: str, s3_output_path: str) -> dict:
         'bucket': config.get('s3_bucket', '').replace('s3://', '').split('/')[0],
         'file_path': s3_output_path.replace(f"s3://{config.get('s3_bucket', '')}/", '') if s3_output_path else '',
         'iterate': 0,
-        'config': ''
+        'config': config.get('spark_config', {})  # Pass actual Spark configuration
     }
     
     response = lambda_client.invoke(

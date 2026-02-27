@@ -1,0 +1,44 @@
+# Documentation and Archive directories
+docs/
+archive/
+
+# Log files
+*.log
+deployment*.log
+
+# Temporary test files
+*test*.json
+test_*.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# AWS
+.aws/
+
+# Temporary files
+/tmp/
+*.tmp
+*.bak
+*.backup
