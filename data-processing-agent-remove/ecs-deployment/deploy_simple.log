@@ -1,0 +1,28 @@
+Traceback (most recent call last):
+  File "/Users/nmurich/strands-agents/agent-core/ray-code-interpreter/ecs-deployment/deploy_simple.py", line 405, in deploy
+    self.security_group_id = self.create_security_group(self.vpc_id)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nmurich/strands-agents/agent-core/ray-code-interpreter/ecs-deployment/deploy_simple.py", line 79, in create_security_group
+    sg_id = json.loads(self.aws_cmd('ec2', 'create-security-group',
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nmurich/opt/anaconda3/envs/bedrock-sdk/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nmurich/opt/anaconda3/envs/bedrock-sdk/lib/python3.12/json/decoder.py", line 338, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nmurich/opt/anaconda3/envs/bedrock-sdk/lib/python3.12/json/decoder.py", line 356, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+Starting Ray on ECS deployment...
+Using existing VPC: vpc-0485dcc1f1d050b55
+Running: aws --region us-east-1 --profile default ec2 describe-vpcs --vpc-ids vpc-0485dcc1f1d050b55
+Running: aws --region us-east-1 --profile default ec2 describe-subnets --subnet-ids subnet-0ffcc9c369d011e54 subnet-04c2c799482ddc064
+
+=== Creating Security Group ===
+Running: aws --region us-east-1 --profile default ec2 create-security-group --group-name ray-ecs-cluster-sg --description Security group for Ray cluster --vpc-id vpc-0485dcc1f1d050b55
+Error: 
+An error occurred (InvalidGroup.Duplicate) when calling the CreateSecurityGroup operation: The security group 'ray-ecs-cluster-sg' already exists for VPC 'vpc-0485dcc1f1d050b55'
+
+
+Deployment failed: Expecting value: line 1 column 1 (char 0)

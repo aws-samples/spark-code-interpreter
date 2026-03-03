@@ -1,0 +1,50 @@
+# Ray on EKS Auto Mode Configuration
+
+# AWS Configuration
+aws:
+  region: us-east-1
+  profile: default  # Optional: AWS profile to use
+
+# EKS Cluster Configuration
+eks:
+  cluster_name: ray-cluster
+  kubernetes_version: "1.31"
+  auto_mode: true
+
+# Network Configuration
+# Set use_existing to true to use existing VPC, false to create new one
+network:
+  use_existing: false
+  # If use_existing is true, provide these:
+  vpc_id: null  # e.g., vpc-xxxxx
+  subnet_ids: []  # e.g., [subnet-xxxxx, subnet-yyyyy]
+  # If use_existing is false, these will be used for new VPC:
+  vpc_cidr: "10.0.0.0/16"
+  availability_zones: 2
+
+# Ray Cluster Configuration
+ray:
+  namespace: ray-system
+  cluster_name: ray-cluster
+  ray_version: "2.9.0"
+  # Head node configuration
+  head:
+    cpu: "1"
+    memory: "2Gi"
+    replicas: 1
+  # Worker node configuration
+  worker:
+    min_replicas: 0
+    max_replicas: 5
+    cpu: "1"
+    memory: "2Gi"
+    replicas_default: 1
+  # Auto-scaling configuration
+  autoscaling:
+    enabled: true
+    idle_timeout_seconds: 300  # Scale down after 5 minutes of inactivity
+
+# KubeRay Operator Configuration
+kuberay:
+  version: "1.1.1"
+  namespace: kuberay-operator

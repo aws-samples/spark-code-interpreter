@@ -1,0 +1,11 @@
+INFO:     Started server process [31243]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 48] error while attempting to bind on address ('127.0.0.1', 8000): address already in use
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+✅ Unified FastAPI backend for Ray and Spark
+✓ Ray Private IP: 172.31.80.237
+✓ Ray Public IP: 54.173.21.137
+✓ S3 Bucket: strands-ray-data
+✓ MCP Gateway: https://ray-validation-gateway-e9r35gofyj.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp
