@@ -228,6 +228,19 @@ echo -e "${GREEN}✅ Docker image built and pushed${NC}"
 echo ""
 
 # ============================================================================
+# STEP 2.5: Deploy MCP Tool Lambdas
+# ============================================================================
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}Step 2.5: Deploying MCP Tool Lambdas${NC}"
+echo -e "${BLUE}========================================${NC}"
+echo ""
+
+cd "$PROJECT_ROOT"
+bash scripts/deploy-mcp-tools.sh
+
+echo ""
+
+# ============================================================================
 # STEP 3: Deploy CloudFormation Stack
 # ============================================================================
 echo -e "${BLUE}========================================${NC}"
@@ -318,6 +331,19 @@ echo -e "${GREEN}✅ CloudFormation stack deployed${NC}"
 echo ""
 
 # ============================================================================
+# STEP 3.5: Register MCP Gateway Targets
+# ============================================================================
+echo -e "${BLUE}========================================${NC}"
+echo -e "${BLUE}Step 3.5: Registering MCP Gateway Targets${NC}"
+echo -e "${BLUE}========================================${NC}"
+echo ""
+
+cd "$PROJECT_ROOT"
+python3 scripts/register-gateway-targets.py
+
+echo ""
+
+# ============================================================================
 # STEP 4: Deploy Wrapper Lambda Code
 # ============================================================================
 echo -e "${BLUE}========================================${NC}"
@@ -373,6 +399,8 @@ echo -e "${YELLOW}What was deployed:${NC}"
 echo "  ✅ Spark Supervisor Agent"
 echo "  ✅ Code Generation Agent"
 echo "  ✅ Spark Lambda (Docker)"
+echo "  ✅ MCP Tool Lambdas (6)"
+echo "  ✅ MCP Gateway Targets (6)"
 echo "  ✅ Wrapper Lambda"
 echo "  ✅ S3 Bucket"
 echo "  ✅ AgentCore Gateway"
