@@ -1,0 +1,501 @@
+employee_id,first_name,last_name,department,title,office,hire_date,years_experience,base_salary,performance_rating,bonus_amount,projects_completed,training_hours,satisfaction_score,remote_work
+EMP0001,Donald,Jackson,Sales,Account Executive,Seattle,2021-01-31,8,83289,Exceeds Expectations,9609.46,11,89,3.6,Yes
+EMP0002,Christopher,Clark,Engineering,Senior Engineer,Boston,2022-09-28,11,131421,Meets Expectations,4228.15,2,118,3.1,Hybrid
+EMP0003,Kenneth,Lee,Finance,Financial Analyst,Chicago,2018-07-07,22,80458,Meets Expectations,3842.96,12,119,4.1,Yes
+EMP0004,Ashley,Gonzalez,Finance,Controller,Miami,2023-03-09,13,98785,Exceeds Expectations,9754.21,15,91,2.9,Hybrid
+EMP0005,Margaret,Martin,Marketing,SEO Specialist,San Francisco,2019-07-26,8,130644,Exceeds Expectations,15111.18,2,19,3.9,Hybrid
+EMP0006,Barbara,Taylor,Support,Support Lead,San Francisco,2023-04-02,17,84973,Meets Expectations,4476.9,15,92,2.8,Hybrid
+EMP0007,Jennifer,White,HR,HRBP,Miami,2020-03-25,5,124514,Exceeds Expectations,17620.04,1,30,4.6,Yes
+EMP0008,Donald,Brown,Sales,BDR,Austin,2019-05-31,5,127296,Outstanding,28708.62,11,83,3.1,Hybrid
+EMP0009,Paul,Jones,Finance,Financial Analyst,Miami,2021-10-16,1,147128,Meets Expectations,10737.66,4,35,4.0,Yes
+EMP0010,Jessica,Miller,Finance,Finance Manager,Austin,2022-07-26,7,126498,Outstanding,19659.95,12,43,4.4,Yes
+EMP0011,Susan,Ramirez,Product,UX Designer,Denver,2022-09-25,6,91630,Meets Expectations,3176.18,4,21,3.2,No
+EMP0012,Andrew,Robinson,Engineering,Senior Engineer,Chicago,2022-04-02,1,146173,Exceeds Expectations,12292.25,6,7,2.2,No
+EMP0013,Daniel,Davis,Engineering,DevOps Engineer,Seattle,2018-11-25,6,103981,Exceeds Expectations,12826.75,9,40,4.8,Yes
+EMP0014,Paul,Thompson,Support,Customer Success Manager,Seattle,2021-05-13,15,63104,Meets Expectations,2994.31,4,47,2.9,No
+EMP0015,Jennifer,Lee,Engineering,DevOps Engineer,Denver,2021-05-11,22,108577,Meets Expectations,6989.63,9,62,2.8,Yes
+EMP0016,Margaret,Jones,HR,HR Manager,New York,2018-01-15,11,76178,Exceeds Expectations,10803.37,14,47,3.7,Yes
+EMP0017,Lisa,Sanchez,HR,HR Coordinator,Denver,2018-06-13,12,68473,Needs Improvement,1643.12,3,112,3.2,Yes
+EMP0018,Matthew,Lee,Finance,Accountant,Denver,2019-10-15,23,131694,Meets Expectations,4106.64,6,35,4.6,No
+EMP0019,Margaret,Smith,Operations,Operations Manager,Austin,2019-04-18,9,138193,Needs Improvement,1596.94,10,24,2.8,Hybrid
+EMP0020,Barbara,Martin,Operations,Facilities Manager,Seattle,2018-10-14,22,99363,Meets Expectations,5735.29,11,120,3.1,Hybrid
+EMP0021,Donna,Hernandez,Support,QA Analyst,San Francisco,2018-01-02,10,107905,Meets Expectations,8415.68,11,10,2.9,Hybrid
+EMP0022,Margaret,Davis,Finance,Accountant,Chicago,2020-07-09,7,102092,Outstanding,21190.94,3,83,4.1,Yes
+EMP0023,Steven,Anderson,Product,Product Manager,Seattle,2020-10-17,4,183992,Outstanding,38871.11,9,57,4.7,Hybrid
+EMP0024,Mark,Hernandez,Finance,Accountant,Miami,2023-11-06,16,127654,Meets Expectations,4792.33,3,90,2.6,No
+EMP0025,Kenneth,Lewis,Support,Support Engineer,Austin,2020-04-27,14,99857,Exceeds Expectations,13255.34,7,68,4.2,Hybrid
+EMP0026,Barbara,Johnson,Product,UX Designer,Seattle,2021-01-22,14,101728,Below Expectations,0.0,2,82,3.3,No
+EMP0027,Jessica,Miller,Support,Technical Writer,New York,2020-05-16,15,60735,Exceeds Expectations,9109.86,13,83,2.1,Yes
+EMP0028,Joshua,Perez,Marketing,Content Strategist,Denver,2019-06-02,16,133920,Meets Expectations,9225.69,5,13,3.7,No
+EMP0029,Ashley,Brown,Support,Customer Success Manager,Denver,2018-11-08,19,65866,Below Expectations,0.0,9,82,3.0,No
+EMP0030,Sandra,Jackson,Operations,Facilities Manager,Denver,2019-09-19,14,130539,Meets Expectations,9475.26,2,35,4.6,Yes
+EMP0031,Steven,Lee,Operations,Operations Manager,Miami,2023-07-18,11,104608,Needs Improvement,268.67,12,52,3.5,Yes
+EMP0032,Daniel,Brown,Product,Product Manager,Chicago,2019-01-17,10,130056,Meets Expectations,8472.21,5,29,2.4,Yes
+EMP0033,Ashley,Brown,Finance,Controller,New York,2023-06-07,9,148222,Exceeds Expectations,12004.56,1,70,2.9,Yes
+EMP0034,Kimberly,Harris,HR,Benefits Specialist,Denver,2023-05-15,15,117616,Meets Expectations,4420.76,5,10,5.0,Yes
+EMP0035,John,Garcia,Finance,Auditor,New York,2022-04-08,15,147139,Below Expectations,0.0,2,20,2.7,Hybrid
+EMP0036,Elizabeth,Robinson,Support,Support Lead,Seattle,2023-04-09,10,59329,Exceeds Expectations,8032.4,4,54,2.3,Yes
+EMP0037,Daniel,Martin,Marketing,Marketing Manager,Seattle,2018-09-02,6,137993,Meets Expectations,6018.19,8,10,3.8,No
+EMP0038,Jennifer,Thomas,Engineering,Software Engineer,Boston,2020-07-26,22,204570,Needs Improvement,1113.82,10,55,3.9,No
+EMP0039,Andrew,Clark,Support,Technical Writer,New York,2021-08-08,22,87777,Outstanding,20307.79,6,14,4.9,No
+EMP0040,William,Martinez,Product,Scrum Master,New York,2018-08-11,7,111680,Meets Expectations,8269.05,1,80,3.8,Yes
+EMP0041,David,Ramirez,Support,Support Engineer,San Francisco,2020-07-09,4,116698,Meets Expectations,4923.09,7,24,4.8,Hybrid
+EMP0042,Jessica,Jackson,HR,Benefits Specialist,Denver,2021-10-24,17,94132,Exceeds Expectations,9804.66,8,119,3.0,Yes
+EMP0043,Elizabeth,Wilson,Finance,Finance Manager,Chicago,2018-06-28,11,120604,Meets Expectations,8889.66,9,116,3.4,Hybrid
+EMP0044,Christopher,Davis,Sales,Regional Director,San Francisco,2020-12-21,11,155794,Below Expectations,0.0,10,8,2.7,Hybrid
+EMP0045,Anthony,Martin,Support,Support Engineer,Austin,2019-02-16,15,57355,Meets Expectations,2902.31,3,21,2.5,Hybrid
+EMP0046,Karen,Miller,Product,Technical PM,Denver,2019-08-10,8,122700,Meets Expectations,5801.05,11,54,4.1,No
+EMP0047,Joseph,Martin,Product,Product Manager,Boston,2020-08-29,13,120976,Exceeds Expectations,16269.07,12,63,4.5,No
+EMP0048,David,Sanchez,Finance,Controller,Boston,2020-10-23,22,159241,Needs Improvement,4345.5,6,95,3.2,Yes
+EMP0049,James,Rodriguez,HR,Recruiter,San Francisco,2020-11-18,16,116385,Below Expectations,0.0,13,71,3.1,No
+EMP0050,Karen,Lee,Product,Product Analyst,Denver,2020-12-09,19,88280,Meets Expectations,5341.3,11,105,3.4,Hybrid
+EMP0051,Michael,Clark,Sales,Sales Manager,Miami,2018-07-05,2,129569,Meets Expectations,10015.52,12,93,2.5,No
+EMP0052,Susan,Lee,Support,Technical Writer,New York,2018-05-15,23,63022,Meets Expectations,2081.46,2,108,4.5,Yes
+EMP0053,Thomas,Sanchez,Engineering,Staff Engineer,Chicago,2020-09-24,5,198150,Outstanding,36232.91,14,18,5.0,Hybrid
+EMP0054,Donald,Taylor,Sales,Account Executive,Austin,2019-06-24,1,168544,Exceeds Expectations,19690.32,13,46,3.5,Yes
+EMP0055,Kimberly,Thompson,Engineering,DevOps Engineer,Boston,2021-05-20,15,179323,Needs Improvement,797.99,3,35,3.9,Hybrid
+EMP0056,Thomas,Lopez,Support,QA Analyst,Chicago,2023-12-14,10,78183,Meets Expectations,4118.29,2,40,3.3,Hybrid
+EMP0057,Patricia,Martinez,Product,Product Manager,Seattle,2019-01-09,3,161869,Below Expectations,0.0,13,54,4.6,Hybrid
+EMP0058,Kimberly,Smith,Operations,Operations Manager,Seattle,2023-09-10,7,105890,Needs Improvement,3095.84,14,79,3.8,Hybrid
+EMP0059,Lisa,Garcia,Engineering,Senior Engineer,Boston,2021-01-24,23,194930,Meets Expectations,15319.65,9,27,3.1,No
+EMP0060,Emily,Thomas,HR,HR Coordinator,Seattle,2018-12-14,2,65693,Meets Expectations,2678.86,6,55,2.3,Hybrid
+EMP0061,Matthew,Williams,Engineering,Senior Engineer,Denver,2022-06-07,20,102180,Meets Expectations,3963.02,12,29,3.5,Hybrid
+EMP0062,Jennifer,Wilson,Engineering,Engineering Manager,San Francisco,2018-03-18,15,215738,Meets Expectations,16894.44,10,58,4.5,No
+EMP0063,Elizabeth,Davis,Finance,Finance Manager,San Francisco,2022-06-29,17,167754,Exceeds Expectations,14759.31,6,44,4.2,Hybrid
+EMP0064,Daniel,Jones,Marketing,SEO Specialist,Miami,2020-03-19,6,145918,Meets Expectations,10812.88,10,41,4.6,Hybrid
+EMP0065,Andrew,Gonzalez,Sales,Regional Director,Miami,2022-12-17,21,169376,Meets Expectations,12124.75,14,109,2.3,Hybrid
+EMP0066,Dorothy,Taylor,Engineering,Engineering Manager,Chicago,2020-02-11,11,174299,Outstanding,32130.94,4,90,3.3,No
+EMP0067,Jennifer,Jackson,Operations,Logistics Coordinator,Chicago,2021-03-04,13,103863,Exceeds Expectations,10374.91,15,77,4.6,No
+EMP0068,Nancy,Smith,Operations,Logistics Coordinator,Boston,2022-05-25,5,109372,Exceeds Expectations,16000.86,2,82,4.0,Hybrid
+EMP0069,David,Martin,HR,Recruiter,Denver,2020-05-27,11,84693,Meets Expectations,4826.53,9,4,4.0,Hybrid
+EMP0070,Steven,Lewis,Marketing,Content Strategist,Austin,2020-01-11,23,81697,Meets Expectations,3614.8,8,29,3.6,No
+EMP0071,Dorothy,Ramirez,Operations,Process Engineer,San Francisco,2022-12-10,15,114874,Exceeds Expectations,16209.89,6,70,4.8,Hybrid
+EMP0072,Michael,Clark,HR,HR Manager,Boston,2019-10-19,9,67021,Outstanding,12833.83,2,47,2.7,No
+EMP0073,Christopher,Davis,Marketing,Content Strategist,Seattle,2018-06-06,10,121925,Exceeds Expectations,11938.25,12,77,3.6,Yes
+EMP0074,Mark,Garcia,Sales,Account Executive,San Francisco,2020-09-03,14,169057,Meets Expectations,11145.46,1,78,3.1,Hybrid
+EMP0075,Michael,Harris,Operations,Operations Manager,Boston,2023-11-25,18,111177,Meets Expectations,3425.6,6,30,4.2,Hybrid
+EMP0076,Karen,Taylor,Marketing,Marketing Manager,Denver,2021-12-14,18,144252,Exceeds Expectations,21068.35,13,25,4.7,No
+EMP0077,Nancy,Robinson,Product,Product Analyst,Seattle,2018-05-30,25,101315,Needs Improvement,2907.17,6,23,3.5,No
+EMP0078,Matthew,Martin,Sales,Regional Director,Denver,2018-11-20,14,172785,Meets Expectations,11383.62,8,44,3.3,Hybrid
+EMP0079,Robert,Martin,HR,HR Manager,Chicago,2018-11-04,22,75969,Meets Expectations,2534.45,6,46,3.1,Hybrid
+EMP0080,Thomas,Thompson,Product,Product Analyst,Miami,2022-03-04,15,126207,Meets Expectations,8428.58,7,116,3.7,No
+EMP0081,Kimberly,Moore,Finance,Auditor,Seattle,2021-03-15,23,86074,Outstanding,16742.35,6,85,3.0,Yes
+EMP0082,Steven,Taylor,HR,Recruiter,Denver,2019-12-15,12,73202,Meets Expectations,5793.98,15,11,2.2,No
+EMP0083,Linda,Taylor,Support,QA Analyst,Chicago,2018-10-30,5,95156,Outstanding,21698.07,7,64,4.7,Yes
+EMP0084,Emily,Jones,HR,Recruiter,Chicago,2019-10-26,11,123012,Exceeds Expectations,12204.21,2,64,3.9,Hybrid
+EMP0085,Betty,Martinez,Operations,Process Engineer,Miami,2018-06-18,1,87631,Meets Expectations,3898.14,8,31,4.4,Hybrid
+EMP0086,Daniel,Davis,Sales,Account Executive,Miami,2019-10-10,15,128471,Outstanding,23372.94,13,47,3.5,Yes
+EMP0087,Ashley,Lewis,Sales,Sales Rep,Seattle,2023-01-16,8,77689,Outstanding,17973.18,3,63,5.0,No
+EMP0088,Nancy,Harris,Product,Product Manager,Denver,2019-01-04,13,121877,Meets Expectations,6524.0,14,13,3.3,No
+EMP0089,Nancy,Sanchez,Operations,Operations Manager,Boston,2022-06-29,2,97827,Meets Expectations,7772.8,2,16,4.9,No
+EMP0090,Betty,Martin,Operations,Supply Chain Analyst,Seattle,2020-03-26,20,65100,Meets Expectations,3926.38,6,119,3.8,Yes
+EMP0091,Thomas,Lee,Operations,Process Engineer,Austin,2023-09-19,18,62180,Meets Expectations,4342.51,12,80,2.1,No
+EMP0092,Steven,Ramirez,Engineering,DevOps Engineer,New York,2023-05-22,6,163712,Outstanding,26355.92,12,26,3.2,Hybrid
+EMP0093,Steven,Miller,Marketing,Growth Lead,Austin,2020-04-29,18,122701,Outstanding,22605.54,11,102,4.1,Hybrid
+EMP0094,Matthew,Harris,HR,HRBP,Chicago,2021-05-07,8,82168,Meets Expectations,3588.51,11,69,3.1,No
+EMP0095,Dorothy,Davis,HR,HR Manager,Austin,2021-03-24,23,88612,Outstanding,15694.36,12,75,2.7,Yes
+EMP0096,Jennifer,Lee,Engineering,Software Engineer,Austin,2022-08-20,11,189025,Meets Expectations,11819.15,5,41,2.9,Yes
+EMP0097,Andrew,Anderson,Engineering,Senior Engineer,Seattle,2022-09-08,6,217411,Meets Expectations,10164.42,11,69,3.6,Yes
+EMP0098,Jennifer,Gonzalez,Finance,Financial Analyst,San Francisco,2021-09-16,6,103720,Meets Expectations,6280.01,7,105,3.3,No
+EMP0099,Linda,Anderson,Marketing,Content Strategist,Seattle,2023-05-10,11,60895,Meets Expectations,3571.12,6,88,2.7,Hybrid
+EMP0100,Susan,Harris,Marketing,Brand Manager,Austin,2023-08-21,23,75389,Below Expectations,0.0,12,70,4.7,Hybrid
+EMP0101,Andrew,Anderson,Sales,BDR,New York,2023-01-04,17,112419,Meets Expectations,6297.38,4,91,3.7,Yes
+EMP0102,John,Robinson,Product,UX Designer,Miami,2023-10-04,14,136897,Meets Expectations,4606.79,12,8,3.6,Yes
+EMP0103,Linda,Garcia,Engineering,Staff Engineer,Denver,2022-08-02,6,195790,Outstanding,47122.1,9,17,4.0,No
+EMP0104,Mark,Martin,Marketing,Content Strategist,New York,2018-01-15,25,120686,Outstanding,21090.02,12,97,2.3,Hybrid
+EMP0105,Joshua,Hernandez,Finance,Controller,Boston,2018-10-03,4,148352,Meets Expectations,10207.09,5,29,4.4,Hybrid
+EMP0106,Mark,Wilson,Finance,Accountant,Chicago,2019-08-10,22,109387,Meets Expectations,5165.34,7,100,3.6,Hybrid
+EMP0107,Nancy,Williams,HR,Benefits Specialist,Austin,2020-01-24,25,94418,Meets Expectations,3465.58,4,42,3.9,No
+EMP0108,Jessica,Thompson,Engineering,Staff Engineer,Austin,2022-03-25,22,174294,Exceeds Expectations,17642.59,4,94,2.4,No
+EMP0109,Daniel,Wilson,Support,Customer Success Manager,New York,2021-08-10,25,84283,Meets Expectations,6663.91,14,40,4.7,No
+EMP0110,Ashley,Anderson,Finance,Controller,Chicago,2018-03-08,9,164373,Meets Expectations,9034.77,11,43,2.8,No
+EMP0111,Elizabeth,Smith,Operations,Supply Chain Analyst,Austin,2019-07-28,24,128674,Outstanding,31463.21,14,80,2.7,Hybrid
+EMP0112,Margaret,Sanchez,Product,Product Analyst,Chicago,2018-09-05,20,154758,Meets Expectations,6768.66,1,64,4.4,Hybrid
+EMP0113,Robert,Williams,Sales,Account Executive,Denver,2023-11-18,5,90156,Meets Expectations,5251.6,4,38,4.1,Yes
+EMP0114,Steven,Rodriguez,Support,Support Lead,New York,2023-05-04,2,93420,Below Expectations,0.0,15,111,4.1,Hybrid
+EMP0115,Paul,Hernandez,Sales,Sales Rep,Denver,2018-05-15,6,176467,Outstanding,40956.27,10,106,4.5,Hybrid
+EMP0116,Joseph,Lopez,Marketing,Marketing Manager,Denver,2023-08-14,24,72803,Needs Improvement,64.71,5,100,5.0,No
+EMP0117,Nancy,Harris,Support,Customer Success Manager,Seattle,2022-04-06,3,85123,Meets Expectations,4211.98,2,0,4.8,No
+EMP0118,Kimberly,Lewis,Sales,Sales Manager,Austin,2018-12-24,6,123830,Exceeds Expectations,15080.6,1,37,3.2,Yes
+EMP0119,Richard,Anderson,Marketing,Brand Manager,San Francisco,2019-11-26,5,95180,Meets Expectations,4573.99,12,80,3.5,Hybrid
+EMP0120,Betty,Hernandez,Marketing,SEO Specialist,Seattle,2018-01-28,13,141289,Outstanding,33337.26,12,25,3.4,Yes
+EMP0121,John,Clark,Product,Technical PM,Denver,2020-09-19,11,162624,Below Expectations,0.0,12,26,3.3,No
+EMP0122,Paul,Martin,Product,UX Designer,San Francisco,2021-05-25,8,143860,Below Expectations,0.0,12,53,3.6,No
+EMP0123,Sandra,Harris,Sales,Sales Manager,Chicago,2021-12-25,6,145304,Exceeds Expectations,16818.55,10,28,3.3,No
+EMP0124,Robert,Sanchez,Operations,Operations Manager,San Francisco,2023-06-01,4,105656,Meets Expectations,5685.15,12,57,3.0,No
+EMP0125,Donna,Lewis,Engineering,Staff Engineer,Austin,2019-03-24,22,199864,Meets Expectations,10043.64,11,84,3.3,Yes
+EMP0126,Daniel,Martin,Product,Technical PM,Denver,2022-10-26,13,189792,Outstanding,32017.15,14,62,3.6,Hybrid
+EMP0127,Joshua,Gonzalez,Support,QA Analyst,Denver,2019-04-13,12,61108,Exceeds Expectations,6194.92,9,49,3.3,Yes
+EMP0128,Ashley,Wilson,Marketing,Brand Manager,Miami,2019-12-11,18,97858,Exceeds Expectations,7894.29,9,64,4.0,No
+EMP0129,Paul,Clark,Product,UX Designer,Boston,2018-12-05,19,155465,Meets Expectations,10669.16,9,14,3.7,No
+EMP0130,Emily,Thompson,Engineering,Engineering Manager,Boston,2020-06-14,14,108423,Meets Expectations,7943.56,13,30,2.6,Hybrid
+EMP0131,Michael,Jones,Support,Customer Success Manager,Denver,2019-07-25,7,86842,Meets Expectations,3861.57,14,65,5.0,Hybrid
+EMP0132,Andrew,White,Engineering,Staff Engineer,Seattle,2019-06-04,23,208518,Exceeds Expectations,25845.16,13,112,4.3,No
+EMP0133,David,Jackson,Operations,Facilities Manager,Miami,2023-06-23,11,106952,Meets Expectations,4341.46,14,36,3.0,Hybrid
+EMP0134,Jennifer,Lee,Operations,Operations Manager,Boston,2018-07-08,4,80707,Exceeds Expectations,7599.55,11,38,2.5,No
+EMP0135,James,Thompson,HR,HR Manager,Boston,2022-03-04,22,106949,Meets Expectations,5758.17,4,66,4.0,Yes
+EMP0136,James,Martin,Sales,Regional Director,Chicago,2019-06-26,16,95008,Outstanding,15554.04,11,18,2.2,Hybrid
+EMP0137,Jennifer,Davis,Product,Product Analyst,Seattle,2020-05-22,21,98168,Exceeds Expectations,12869.89,13,17,2.7,Hybrid
+EMP0138,Nancy,Robinson,Engineering,Staff Engineer,Boston,2020-04-21,17,174551,Outstanding,42846.54,10,9,3.6,Yes
+EMP0139,Mark,Wilson,Marketing,Brand Manager,Denver,2022-09-20,12,82645,Exceeds Expectations,6842.0,9,36,3.9,Hybrid
+EMP0140,Patricia,Davis,Sales,BDR,San Francisco,2019-09-18,9,105620,Meets Expectations,6565.1,7,93,4.9,Yes
+EMP0141,David,White,Support,Support Engineer,Seattle,2023-02-01,20,51660,Exceeds Expectations,5927.93,14,92,2.8,No
+EMP0142,Linda,Davis,Sales,Account Executive,New York,2021-10-04,14,133662,Meets Expectations,6467.15,2,114,3.7,Hybrid
+EMP0143,Barbara,Davis,Engineering,Software Engineer,New York,2020-09-28,2,156835,Meets Expectations,6832.19,6,15,3.5,Yes
+EMP0144,Paul,Harris,Support,Support Engineer,Austin,2023-03-21,10,109866,Meets Expectations,7358.69,6,75,4.9,Yes
+EMP0145,Elizabeth,Thompson,Marketing,Marketing Manager,Seattle,2022-08-07,1,105406,Meets Expectations,3710.02,4,53,3.5,Yes
+EMP0146,Betty,Thompson,Sales,Account Executive,Boston,2020-08-06,17,156861,Exceeds Expectations,13370.54,3,30,2.9,No
+EMP0147,Jennifer,Garcia,Operations,Facilities Manager,Seattle,2021-01-18,8,80369,Meets Expectations,3850.83,8,39,3.4,Yes
+EMP0148,Sandra,Brown,Engineering,Senior Engineer,Chicago,2021-09-04,5,106955,Meets Expectations,8300.22,9,95,3.7,Yes
+EMP0149,Linda,Johnson,Sales,Account Executive,Miami,2018-09-10,25,82133,Exceeds Expectations,7707.57,2,115,4.5,No
+EMP0150,Mark,Lewis,Engineering,Senior Engineer,Miami,2022-11-10,24,146773,Outstanding,26051.94,10,31,3.9,No
+EMP0151,Mary,Hernandez,Engineering,Software Engineer,Austin,2021-02-19,13,112987,Needs Improvement,3093.62,9,41,3.2,Yes
+EMP0152,Matthew,Robinson,Engineering,Staff Engineer,Chicago,2018-08-28,16,164393,Exceeds Expectations,22256.61,4,73,4.5,No
+EMP0153,Joseph,Martin,Marketing,Content Strategist,Austin,2021-07-26,24,137537,Outstanding,32138.23,3,62,2.1,Yes
+EMP0154,Betty,Jackson,Engineering,DevOps Engineer,San Francisco,2023-05-12,1,138481,Exceeds Expectations,19969.75,14,46,4.9,No
+EMP0155,Christopher,Jones,Operations,Logistics Coordinator,Chicago,2021-08-14,5,101586,Below Expectations,0.0,10,104,2.5,No
+EMP0156,Lisa,Anderson,Engineering,DevOps Engineer,New York,2022-05-23,25,169381,Exceeds Expectations,16372.32,15,11,4.5,Hybrid
+EMP0157,Joshua,Lee,HR,Recruiter,Austin,2020-10-19,23,55167,Needs Improvement,626.77,9,48,2.3,No
+EMP0158,Mary,Wilson,Marketing,Brand Manager,Chicago,2018-10-29,2,101774,Outstanding,16903.69,6,76,5.0,No
+EMP0159,Jennifer,Martinez,Support,Customer Success Manager,Miami,2018-08-08,4,84768,Meets Expectations,4966.43,3,6,3.1,No
+EMP0160,Barbara,Anderson,Finance,Financial Analyst,New York,2018-04-16,7,80739,Meets Expectations,2790.09,3,47,4.7,No
+EMP0161,Mark,Moore,HR,Benefits Specialist,Miami,2023-03-20,9,63079,Meets Expectations,4278.2,1,107,3.2,Hybrid
+EMP0162,Margaret,Miller,Finance,Finance Manager,Chicago,2021-05-09,3,135811,Outstanding,26470.1,4,16,2.1,Yes
+EMP0163,Emily,Jackson,HR,HR Coordinator,San Francisco,2018-10-02,3,97746,Outstanding,14782.75,2,53,2.4,Hybrid
+EMP0164,Jessica,Johnson,Sales,BDR,Miami,2019-02-18,10,135206,Meets Expectations,5028.67,12,51,2.1,No
+EMP0165,Richard,Anderson,HR,HR Coordinator,Austin,2018-03-24,11,91745,Exceeds Expectations,12115.9,12,53,3.8,Yes
+EMP0166,Robert,Anderson,Support,Support Lead,New York,2023-10-17,12,116426,Exceeds Expectations,16480.48,14,25,4.5,Yes
+EMP0167,Jennifer,Martinez,Operations,Supply Chain Analyst,New York,2021-01-27,12,64005,Meets Expectations,3438.93,6,20,4.5,No
+EMP0168,James,Davis,Support,Support Engineer,Seattle,2019-10-30,19,85269,Meets Expectations,5830.58,15,16,3.9,Hybrid
+EMP0169,Kenneth,Martin,HR,HR Coordinator,Seattle,2022-10-02,13,83601,Meets Expectations,2538.74,14,107,3.1,Hybrid
+EMP0170,David,White,HR,HR Manager,New York,2023-05-28,3,91291,Exceeds Expectations,13052.61,10,51,4.0,Hybrid
+EMP0171,Kimberly,Garcia,Product,Product Analyst,Seattle,2020-11-28,14,180230,Needs Improvement,5086.1,6,64,2.9,Yes
+EMP0172,Steven,Johnson,Sales,Regional Director,San Francisco,2019-06-09,24,160051,Meets Expectations,11108.26,5,74,2.9,Yes
+EMP0173,Barbara,Harris,Product,UX Designer,San Francisco,2023-08-12,4,199143,Outstanding,32606.98,15,58,2.4,Hybrid
+EMP0174,Anthony,Smith,Product,Product Analyst,New York,2019-12-26,11,160534,Needs Improvement,2959.35,11,54,3.2,No
+EMP0175,Christopher,Anderson,Finance,Accountant,Boston,2018-02-27,11,94979,Meets Expectations,4670.83,3,8,4.5,No
+EMP0176,Anthony,Lewis,Support,Customer Success Manager,Seattle,2021-11-04,16,79939,Needs Improvement,405.25,6,91,4.0,Yes
+EMP0177,Dorothy,Rodriguez,Engineering,DevOps Engineer,Chicago,2018-07-16,22,109170,Exceeds Expectations,14097.21,1,38,3.3,Yes
+EMP0178,Susan,Thompson,Support,Support Engineer,Miami,2023-09-27,24,76037,Exceeds Expectations,8867.45,5,20,2.1,No
+EMP0179,Barbara,Ramirez,Operations,Supply Chain Analyst,New York,2018-01-12,1,79548,Meets Expectations,3404.23,5,33,3.4,Yes
+EMP0180,Barbara,Brown,HR,HR Coordinator,Denver,2021-07-04,14,61014,Meets Expectations,4744.11,12,11,3.1,No
+EMP0181,Barbara,Martin,Support,Support Lead,Denver,2021-01-18,13,67368,Needs Improvement,1841.63,8,102,3.7,No
+EMP0182,Joseph,Perez,Operations,Process Engineer,Boston,2018-04-29,22,74802,Exceeds Expectations,7629.55,13,95,3.7,Hybrid
+EMP0183,Lisa,Rodriguez,Sales,Regional Director,New York,2020-10-15,16,151993,Meets Expectations,11033.71,2,96,3.5,Yes
+EMP0184,Kimberly,Smith,Finance,Auditor,San Francisco,2022-03-31,13,130174,Outstanding,25345.76,2,51,3.2,Hybrid
+EMP0185,James,Hernandez,HR,HRBP,Boston,2020-04-27,21,62113,Meets Expectations,3904.32,2,12,4.3,Yes
+EMP0186,Michael,Harris,HR,HRBP,Denver,2023-11-09,12,119542,Meets Expectations,8679.91,14,100,2.6,No
+EMP0187,Emily,Garcia,Engineering,DevOps Engineer,Chicago,2019-05-20,25,211884,Meets Expectations,15243.11,9,99,4.8,Yes
+EMP0188,Kimberly,Ramirez,Sales,Regional Director,Boston,2021-08-11,17,115418,Below Expectations,0.0,12,65,2.9,Hybrid
+EMP0189,Paul,Martinez,Finance,Controller,Denver,2020-05-08,20,115258,Meets Expectations,5487.65,10,120,4.0,No
+EMP0190,Robert,Lopez,Engineering,DevOps Engineer,Miami,2019-03-13,1,144921,Needs Improvement,269.7,13,37,2.6,Hybrid
+EMP0191,Donald,Clark,Sales,BDR,Austin,2020-07-07,24,138566,Meets Expectations,6323.14,1,95,2.8,Hybrid
+EMP0192,Lisa,Anderson,Operations,Process Engineer,Chicago,2020-03-15,25,69760,Needs Improvement,553.0,3,74,4.5,Yes
+EMP0193,Betty,Williams,Engineering,Senior Engineer,Boston,2021-08-14,20,101665,Needs Improvement,207.93,9,20,3.2,Hybrid
+EMP0194,Linda,Gonzalez,Finance,Controller,Seattle,2021-09-21,11,168652,Meets Expectations,10234.66,1,87,4.7,No
+EMP0195,Susan,Perez,HR,HR Manager,Austin,2023-10-19,25,118806,Exceeds Expectations,17390.21,9,68,2.0,Yes
+EMP0196,Mark,Gonzalez,Support,Support Engineer,Miami,2020-04-22,18,53113,Needs Improvement,401.39,2,73,4.5,No
+EMP0197,Anthony,Gonzalez,Support,Support Lead,New York,2021-07-19,1,55965,Outstanding,10396.62,10,11,2.8,No
+EMP0198,Linda,Johnson,Product,UX Designer,New York,2023-12-26,8,173773,Outstanding,42841.39,1,70,4.6,Yes
+EMP0199,Sandra,Lee,Support,QA Analyst,San Francisco,2018-12-15,10,68671,Exceeds Expectations,6708.6,10,109,2.2,Hybrid
+EMP0200,Emily,Jones,HR,HR Manager,Boston,2020-10-23,4,98365,Meets Expectations,7377.96,8,42,3.8,No
+EMP0201,Kenneth,Williams,Operations,Facilities Manager,Seattle,2019-11-22,1,96264,Meets Expectations,5031.52,8,70,2.3,Hybrid
+EMP0202,Steven,Lee,Marketing,Growth Lead,Chicago,2020-03-15,9,70022,Exceeds Expectations,7587.54,9,33,3.6,Hybrid
+EMP0203,David,Anderson,Operations,Facilities Manager,Chicago,2020-07-03,25,125683,Meets Expectations,9099.34,10,87,2.5,Hybrid
+EMP0204,Robert,Lee,Marketing,Growth Lead,Boston,2019-08-22,24,107028,Meets Expectations,5982.25,7,60,4.8,Yes
+EMP0205,Ashley,Sanchez,Sales,BDR,Miami,2021-01-25,24,140842,Meets Expectations,5996.96,4,66,3.2,No
+EMP0206,Steven,Thomas,Engineering,DevOps Engineer,Austin,2019-07-24,15,116706,Exceeds Expectations,16010.53,6,92,2.3,Hybrid
+EMP0207,Mary,Lewis,Marketing,Brand Manager,Seattle,2018-04-02,8,135168,Outstanding,22260.35,7,76,4.9,Hybrid
+EMP0208,Emily,Williams,Sales,Sales Manager,Austin,2023-01-14,20,178679,Meets Expectations,9923.88,11,43,4.8,Hybrid
+EMP0209,Kenneth,Moore,Support,Support Lead,New York,2019-06-26,4,62622,Meets Expectations,4333.03,2,11,3.4,Yes
+EMP0210,Jennifer,Martinez,Support,QA Analyst,Denver,2022-09-20,12,99969,Meets Expectations,6481.53,3,32,3.4,Yes
+EMP0211,Paul,Wilson,HR,Recruiter,Boston,2018-01-23,23,123490,Meets Expectations,6229.11,7,83,3.8,No
+EMP0212,Donald,Sanchez,HR,Benefits Specialist,Chicago,2020-04-14,14,78425,Below Expectations,0.0,14,84,2.4,Yes
+EMP0213,Kenneth,Johnson,Sales,Sales Manager,Denver,2023-09-14,13,109359,Exceeds Expectations,9861.23,2,33,2.7,Yes
+EMP0214,William,Perez,Support,QA Analyst,New York,2023-11-05,10,51403,Outstanding,12494.83,9,66,4.1,Hybrid
+EMP0215,Sarah,Davis,Operations,Supply Chain Analyst,Austin,2018-01-02,6,113143,Exceeds Expectations,16331.33,9,117,3.7,No
+EMP0216,Anthony,Jackson,Product,Scrum Master,Miami,2018-01-20,9,123568,Meets Expectations,5299.17,13,73,2.8,No
+EMP0217,Thomas,Davis,Finance,Accountant,Seattle,2023-02-23,22,133172,Meets Expectations,5526.17,6,66,3.6,Hybrid
+EMP0218,Joseph,Miller,Sales,Regional Director,Austin,2021-11-01,3,88394,Outstanding,19297.36,12,30,4.6,Yes
+EMP0219,Sarah,Gonzalez,Operations,Supply Chain Analyst,Austin,2019-03-13,4,60868,Meets Expectations,4824.89,14,35,3.5,Hybrid
+EMP0220,Nancy,Martin,Marketing,Marketing Manager,Seattle,2023-11-24,14,64268,Below Expectations,0.0,4,48,3.7,No
+EMP0221,Joseph,Clark,Marketing,Growth Lead,San Francisco,2020-12-12,8,140358,Exceeds Expectations,14886.6,3,73,2.4,Hybrid
+EMP0222,Patricia,Gonzalez,HR,Recruiter,San Francisco,2022-11-06,13,56276,Exceeds Expectations,6986.42,8,38,2.8,Hybrid
+EMP0223,Richard,Jackson,Marketing,Marketing Manager,Chicago,2020-06-01,9,142557,Meets Expectations,6729.69,6,111,4.0,Hybrid
+EMP0224,Jennifer,Garcia,HR,HR Coordinator,Boston,2021-08-24,22,104947,Below Expectations,0.0,10,73,3.2,Yes
+EMP0225,Jessica,Perez,Finance,Accountant,Seattle,2021-07-21,21,149349,Outstanding,27826.18,3,109,2.1,Hybrid
+EMP0226,Joseph,Davis,Sales,Sales Manager,Seattle,2019-11-15,13,77524,Meets Expectations,3343.04,11,119,4.7,No
+EMP0227,Sandra,Lee,Product,UX Designer,Denver,2019-06-22,17,146235,Below Expectations,0.0,12,69,2.5,Hybrid
+EMP0228,Ashley,Harris,HR,HR Coordinator,Miami,2023-05-27,18,95352,Exceeds Expectations,11121.11,5,60,3.6,Hybrid
+EMP0229,Jessica,Taylor,HR,HR Manager,Seattle,2022-10-30,10,103974,Meets Expectations,6477.53,4,33,2.2,Hybrid
+EMP0230,Barbara,Brown,HR,HRBP,Seattle,2021-01-06,14,72907,Meets Expectations,3980.71,3,6,4.9,Yes
+EMP0231,Patricia,Rodriguez,HR,Recruiter,Denver,2022-12-01,24,56930,Meets Expectations,2765.08,1,42,2.2,Yes
+EMP0232,Steven,Gonzalez,Sales,BDR,Seattle,2023-04-10,6,175302,Needs Improvement,2423.56,13,12,3.6,Yes
+EMP0233,Emily,Brown,Operations,Supply Chain Analyst,Denver,2018-06-22,24,123075,Meets Expectations,9681.54,7,41,2.0,No
+EMP0234,Elizabeth,Thompson,Finance,Financial Analyst,San Francisco,2018-06-22,19,160230,Exceeds Expectations,19757.18,11,7,2.2,Hybrid
+EMP0235,Ashley,Miller,Marketing,Brand Manager,Chicago,2020-08-11,11,144495,Meets Expectations,10827.47,8,71,2.9,Hybrid
+EMP0236,Donna,Ramirez,Operations,Logistics Coordinator,Boston,2023-04-03,9,69027,Meets Expectations,3638.0,9,48,4.2,Yes
+EMP0237,Robert,Miller,Finance,Accountant,San Francisco,2018-09-17,22,94886,Meets Expectations,3303.25,1,106,4.8,Yes
+EMP0238,Sandra,Sanchez,Product,UX Designer,New York,2019-02-09,2,91433,Meets Expectations,6995.59,8,118,4.7,Yes
+EMP0239,Richard,Taylor,Operations,Process Engineer,Austin,2022-08-31,12,129339,Exceeds Expectations,18899.3,12,29,3.6,Yes
+EMP0240,Kimberly,Hernandez,Marketing,Growth Lead,Boston,2022-08-28,24,143705,Exceeds Expectations,15535.8,10,56,4.8,No
+EMP0241,James,Martinez,Support,Support Lead,Austin,2021-08-17,20,83303,Below Expectations,0.0,10,2,3.6,No
+EMP0242,Joshua,Gonzalez,Finance,Accountant,Austin,2018-03-30,25,142569,Exceeds Expectations,12786.81,4,32,4.4,Yes
+EMP0243,Kenneth,Robinson,Sales,Sales Rep,New York,2023-05-31,6,173226,Needs Improvement,2256.98,15,111,2.4,Yes
+EMP0244,Margaret,Martinez,Support,Support Engineer,Denver,2021-06-02,17,115850,Exceeds Expectations,15200.74,10,73,3.5,Yes
+EMP0245,Kimberly,Martin,Marketing,Content Strategist,Austin,2021-10-08,3,66463,Meets Expectations,2442.09,8,50,4.0,Yes
+EMP0246,Donna,Jones,Finance,Financial Analyst,Miami,2020-12-26,25,145499,Meets Expectations,9133.04,3,44,3.8,No
+EMP0247,Paul,Miller,Engineering,Senior Engineer,Austin,2020-03-28,22,143997,Outstanding,25742.13,8,2,3.0,Hybrid
+EMP0248,Anthony,Perez,HR,HRBP,Seattle,2023-06-02,20,104362,Meets Expectations,6765.41,8,83,4.8,Yes
+EMP0249,Jessica,Robinson,Operations,Operations Manager,Seattle,2018-03-20,10,126655,Meets Expectations,5059.08,9,118,4.1,Yes
+EMP0250,Kimberly,Rodriguez,Operations,Facilities Manager,Austin,2022-05-31,24,106580,Below Expectations,0.0,7,113,5.0,Yes
+EMP0251,Richard,Ramirez,Marketing,SEO Specialist,Chicago,2022-05-29,22,110096,Exceeds Expectations,15818.76,4,83,2.4,Hybrid
+EMP0252,Mark,Martinez,HR,HRBP,Miami,2019-07-08,14,129035,Meets Expectations,5920.11,12,3,4.3,No
+EMP0253,Nancy,Garcia,HR,Recruiter,Denver,2020-02-09,4,89978,Exceeds Expectations,9461.03,9,108,3.8,Hybrid
+EMP0254,Daniel,Ramirez,Product,Scrum Master,Miami,2019-07-18,6,114170,Needs Improvement,3175.42,8,110,3.9,Hybrid
+EMP0255,Paul,Gonzalez,Finance,Finance Manager,New York,2022-07-17,25,164398,Outstanding,37596.51,1,112,5.0,Hybrid
+EMP0256,Linda,Garcia,Support,QA Analyst,Chicago,2018-07-21,7,71821,Meets Expectations,5399.77,11,57,2.3,Hybrid
+EMP0257,Nancy,Williams,Support,Support Lead,Denver,2021-08-17,15,61820,Meets Expectations,2361.51,2,14,4.1,Hybrid
+EMP0258,Richard,Smith,Marketing,Brand Manager,Seattle,2022-04-08,2,103934,Needs Improvement,2996.31,5,80,2.5,Yes
+EMP0259,Kimberly,Clark,Engineering,Engineering Manager,Austin,2023-08-01,16,166237,Meets Expectations,9984.33,15,70,2.8,Hybrid
+EMP0260,Joshua,Sanchez,Engineering,Senior Engineer,Chicago,2019-08-31,2,180626,Outstanding,27979.53,10,84,4.1,Hybrid
+EMP0261,Susan,Thompson,Product,Technical PM,Austin,2022-01-15,2,184410,Meets Expectations,6772.88,5,42,3.6,Hybrid
+EMP0262,Barbara,Lewis,Engineering,Software Engineer,Austin,2023-12-07,3,158394,Meets Expectations,5779.11,9,93,3.9,No
+EMP0263,Karen,Taylor,HR,Recruiter,Boston,2018-01-07,4,82175,Meets Expectations,2511.67,5,32,4.4,No
+EMP0264,Paul,Lewis,Engineering,Software Engineer,Boston,2021-09-27,11,146910,Outstanding,35585.71,3,61,2.5,No
+EMP0265,Anthony,Lee,Product,Scrum Master,Chicago,2018-08-18,17,112297,Meets Expectations,7837.11,3,35,4.5,No
+EMP0266,Richard,Robinson,Support,Customer Success Manager,San Francisco,2019-04-24,25,104246,Meets Expectations,8082.85,5,22,2.3,Yes
+EMP0267,Sandra,Gonzalez,Product,Technical PM,San Francisco,2018-04-13,16,125679,Needs Improvement,3536.7,11,16,2.6,Yes
+EMP0268,Sarah,Moore,Engineering,Staff Engineer,Boston,2018-06-30,22,206165,Needs Improvement,3951.26,4,41,2.6,No
+EMP0269,Donna,Lewis,Product,Product Manager,Boston,2021-01-21,5,112076,Meets Expectations,8648.22,10,31,2.5,No
+EMP0270,Richard,Thompson,Product,Product Manager,San Francisco,2019-06-17,1,140897,Meets Expectations,8661.44,8,78,3.1,No
+EMP0271,Lisa,Sanchez,Product,Technical PM,Boston,2019-06-24,3,146675,Exceeds Expectations,20575.09,7,23,4.1,Hybrid
+EMP0272,Karen,Moore,Product,Scrum Master,Miami,2018-05-04,3,185655,Meets Expectations,9335.53,2,41,3.7,Yes
+EMP0273,John,White,Support,QA Analyst,Miami,2022-08-21,8,58658,Exceeds Expectations,6462.96,6,69,4.1,Yes
+EMP0274,Emily,Lewis,Sales,BDR,New York,2023-03-12,11,77799,Exceeds Expectations,10424.6,11,7,2.3,Yes
+EMP0275,Jennifer,Jackson,Marketing,Content Strategist,New York,2023-01-30,18,140684,Outstanding,25319.4,15,55,4.2,No
+EMP0276,Paul,Miller,Support,Customer Success Manager,Chicago,2021-04-19,2,64378,Meets Expectations,3831.02,12,48,3.2,No
+EMP0277,Sandra,Lewis,Product,UX Designer,Denver,2020-02-10,18,102600,Exceeds Expectations,9242.18,3,10,2.4,No
+EMP0278,Robert,Johnson,Marketing,Brand Manager,Miami,2023-09-18,14,118988,Meets Expectations,4978.16,7,118,3.6,No
+EMP0279,Emily,Martinez,Operations,Operations Manager,New York,2023-05-27,23,120940,Meets Expectations,7441.82,11,9,4.1,Hybrid
+EMP0280,Steven,Jackson,Operations,Process Engineer,Chicago,2018-02-14,16,115183,Meets Expectations,6897.37,13,72,2.8,Hybrid
+EMP0281,Donald,Lopez,Engineering,Staff Engineer,Chicago,2018-04-22,10,158538,Meets Expectations,10633.37,15,75,4.2,Hybrid
+EMP0282,Matthew,Johnson,HR,Recruiter,Seattle,2023-06-10,6,66062,Meets Expectations,2767.82,11,21,2.6,Hybrid
+EMP0283,Daniel,Taylor,Sales,Account Executive,New York,2019-11-18,15,127420,Needs Improvement,45.35,15,102,3.3,Hybrid
+EMP0284,Barbara,Hernandez,Sales,BDR,New York,2021-12-20,14,150467,Meets Expectations,10149.68,10,98,2.6,No
+EMP0285,Linda,Thompson,Engineering,Software Engineer,San Francisco,2018-02-18,14,107805,Meets Expectations,3729.74,11,114,4.5,Hybrid
+EMP0286,Daniel,Rodriguez,Sales,BDR,Chicago,2019-06-17,13,165120,Meets Expectations,8697.23,13,54,4.1,Hybrid
+EMP0287,Donna,Lee,Sales,Sales Rep,San Francisco,2018-09-13,13,108601,Meets Expectations,4226.98,3,69,4.3,Yes
+EMP0288,James,Taylor,Product,Product Analyst,Miami,2019-02-28,2,150234,Exceeds Expectations,21829.38,12,42,4.7,Hybrid
+EMP0289,Jennifer,Lopez,Product,Scrum Master,Boston,2022-07-13,24,175342,Outstanding,34753.95,11,38,3.2,Hybrid
+EMP0290,Richard,Smith,Sales,Regional Director,Austin,2021-04-02,21,88149,Meets Expectations,4788.71,8,94,2.6,Yes
+EMP0291,Paul,Jones,Product,Scrum Master,Austin,2018-09-16,18,129470,Exceeds Expectations,10745.62,11,66,3.4,Hybrid
+EMP0292,Linda,Thomas,Sales,Account Executive,Austin,2019-08-03,16,67498,Exceeds Expectations,6851.97,3,106,3.8,Yes
+EMP0293,William,Thompson,Sales,Sales Manager,Boston,2022-10-12,11,174562,Outstanding,40028.84,2,35,2.4,No
+EMP0294,David,Miller,Marketing,Brand Manager,Chicago,2020-09-24,19,73102,Exceeds Expectations,10587.33,5,53,4.1,No
+EMP0295,Dorothy,Brown,HR,HRBP,Boston,2023-01-19,14,59931,Meets Expectations,4142.98,1,71,2.7,Yes
+EMP0296,Robert,Brown,Finance,Finance Manager,New York,2020-05-02,9,89558,Meets Expectations,3963.23,6,78,4.4,No
+EMP0297,Anthony,Lewis,Marketing,Content Strategist,Austin,2018-04-30,16,69287,Exceeds Expectations,7122.56,2,30,4.2,Yes
+EMP0298,Sarah,Jones,Sales,Regional Director,San Francisco,2023-06-08,2,122129,Exceeds Expectations,15173.49,3,4,4.1,Yes
+EMP0299,Jessica,Davis,Product,Scrum Master,Boston,2022-09-10,6,96334,Meets Expectations,3932.56,8,35,2.0,No
+EMP0300,Jessica,Williams,Support,QA Analyst,New York,2020-06-29,19,55250,Needs Improvement,1342.11,12,105,2.3,No
+EMP0301,Barbara,Sanchez,Support,Customer Success Manager,Boston,2019-06-28,12,89955,Needs Improvement,1227.46,13,17,4.6,No
+EMP0302,Patricia,Taylor,Product,Product Manager,Boston,2018-10-17,13,183682,Meets Expectations,12807.03,2,79,4.6,Hybrid
+EMP0303,Susan,Harris,Engineering,Software Engineer,Austin,2022-04-18,12,155994,Needs Improvement,531.43,8,94,4.8,Hybrid
+EMP0304,Nancy,Sanchez,Operations,Logistics Coordinator,San Francisco,2020-12-31,17,108865,Meets Expectations,7129.71,9,115,2.9,Hybrid
+EMP0305,David,Thomas,Finance,Finance Manager,Boston,2018-12-24,3,80085,Meets Expectations,4487.51,5,53,4.9,Hybrid
+EMP0306,Joshua,Jones,Support,Support Lead,Seattle,2018-03-29,10,103961,Meets Expectations,6203.13,14,70,3.3,No
+EMP0307,William,Davis,Marketing,SEO Specialist,San Francisco,2020-07-17,16,66202,Meets Expectations,2589.43,12,88,4.7,Yes
+EMP0308,Sandra,Robinson,Engineering,Staff Engineer,Boston,2019-06-03,15,129132,Exceeds Expectations,19148.03,1,51,4.8,Yes
+EMP0309,Linda,Martinez,Marketing,Marketing Manager,New York,2023-09-10,11,98739,Meets Expectations,6364.45,15,5,2.4,Hybrid
+EMP0310,Betty,Miller,Support,QA Analyst,Miami,2020-06-21,15,119000,Needs Improvement,3032.54,11,85,4.9,Hybrid
+EMP0311,Mark,Sanchez,Operations,Process Engineer,Miami,2023-09-27,2,116051,Meets Expectations,9153.66,2,27,4.2,No
+EMP0312,Sarah,Wilson,HR,Recruiter,Chicago,2022-10-03,24,66282,Meets Expectations,2207.57,13,48,2.3,No
+EMP0313,Karen,Lee,Product,Technical PM,Miami,2019-07-15,7,192845,Outstanding,45021.31,1,101,2.0,No
+EMP0314,Linda,Lopez,Sales,Sales Rep,New York,2022-09-05,6,155156,Below Expectations,0.0,14,33,3.9,No
+EMP0315,Barbara,Harris,HR,Recruiter,San Francisco,2018-08-28,5,76405,Meets Expectations,3399.47,15,9,3.5,Hybrid
+EMP0316,Michael,Miller,Marketing,Growth Lead,Chicago,2021-08-14,11,149780,Meets Expectations,8373.98,8,52,3.0,Yes
+EMP0317,Lisa,Garcia,Finance,Controller,Seattle,2023-11-24,18,124702,Exceeds Expectations,13015.73,8,113,5.0,Hybrid
+EMP0318,Richard,Brown,Engineering,Software Engineer,New York,2020-06-29,5,207304,Exceeds Expectations,26608.98,13,61,4.3,Yes
+EMP0319,Matthew,Lopez,Engineering,Engineering Manager,Chicago,2019-05-03,9,100672,Exceeds Expectations,9355.92,14,95,4.8,Hybrid
+EMP0320,Emily,Garcia,Finance,Auditor,Miami,2018-10-07,4,139315,Outstanding,28380.23,9,108,4.1,No
+EMP0321,Linda,Gonzalez,Sales,Sales Manager,Seattle,2021-12-24,13,93085,Meets Expectations,4473.9,12,5,2.2,No
+EMP0322,Betty,Anderson,Product,Technical PM,San Francisco,2021-07-01,22,109744,Outstanding,26281.0,1,86,3.5,Yes
+EMP0323,Emily,Jackson,Sales,Sales Manager,Seattle,2022-06-06,13,142405,Meets Expectations,5146.25,12,63,2.8,Hybrid
+EMP0324,Mary,Garcia,Support,Technical Writer,Denver,2023-05-03,22,109589,Exceeds Expectations,10537.81,12,6,4.5,No
+EMP0325,Margaret,Lewis,Operations,Supply Chain Analyst,San Francisco,2021-05-25,20,124512,Meets Expectations,7112.36,9,69,2.1,Yes
+EMP0326,Paul,Jackson,Support,Support Lead,Miami,2021-07-12,13,89720,Exceeds Expectations,9139.97,10,86,3.5,Hybrid
+EMP0327,Lisa,Gonzalez,Product,Technical PM,San Francisco,2019-10-03,17,127006,Exceeds Expectations,11300.21,10,3,4.3,Hybrid
+EMP0328,Margaret,Jackson,Support,Technical Writer,Denver,2022-01-03,14,90907,Exceeds Expectations,12802.05,9,41,2.1,Hybrid
+EMP0329,Nancy,Wilson,HR,HR Manager,Austin,2023-04-08,19,106157,Meets Expectations,5821.29,11,43,2.5,No
+EMP0330,Karen,Taylor,Product,Product Manager,Seattle,2024-01-04,7,179071,Outstanding,28557.05,8,54,2.6,Yes
+EMP0331,Paul,Sanchez,Support,QA Analyst,Denver,2021-07-07,7,73671,Meets Expectations,4048.97,14,95,4.8,No
+EMP0332,Kenneth,Davis,Engineering,DevOps Engineer,Denver,2020-04-01,12,155619,Outstanding,37521.89,5,82,2.5,Hybrid
+EMP0333,Robert,White,Finance,Financial Analyst,Miami,2019-09-07,7,130838,Meets Expectations,4817.66,13,35,4.0,Yes
+EMP0334,Thomas,Thomas,Engineering,Software Engineer,San Francisco,2018-12-10,11,173852,Needs Improvement,4865.78,9,85,4.5,Hybrid
+EMP0335,Linda,Hernandez,Finance,Auditor,Denver,2019-05-16,25,146588,Exceeds Expectations,21679.58,10,7,3.5,No
+EMP0336,Nancy,Lewis,Product,UX Designer,San Francisco,2021-02-11,5,195293,Needs Improvement,3934.76,5,70,3.2,Hybrid
+EMP0337,Jennifer,Clark,Finance,Finance Manager,Miami,2022-05-11,1,109438,Outstanding,18169.19,11,52,4.4,No
+EMP0338,Donald,Sanchez,Product,Scrum Master,Chicago,2021-09-24,23,131118,Meets Expectations,6075.8,13,6,3.9,Yes
+EMP0339,Steven,Ramirez,Engineering,Engineering Manager,Chicago,2020-03-30,21,135048,Needs Improvement,2406.62,7,101,4.8,No
+EMP0340,Richard,Rodriguez,HR,Recruiter,Chicago,2021-09-03,10,78840,Outstanding,13595.86,11,29,4.7,No
+EMP0341,Sarah,Martinez,Engineering,Engineering Manager,Miami,2022-10-23,20,129099,Needs Improvement,2608.87,2,28,4.1,Yes
+EMP0342,Sandra,Williams,Support,Customer Success Manager,New York,2022-11-02,7,73641,Needs Improvement,996.31,4,47,3.7,Hybrid
+EMP0343,Robert,Smith,Product,UX Designer,Seattle,2021-08-17,23,94575,Exceeds Expectations,9769.63,10,120,4.0,Hybrid
+EMP0344,Robert,Jones,Support,Technical Writer,Miami,2022-06-05,22,72264,Meets Expectations,2491.84,7,18,2.8,No
+EMP0345,Patricia,Miller,HR,HR Coordinator,Chicago,2022-10-28,10,89571,Outstanding,16262.0,14,118,4.0,No
+EMP0346,Matthew,Williams,Engineering,Senior Engineer,Austin,2020-01-21,2,156636,Exceeds Expectations,20305.04,14,92,4.6,Yes
+EMP0347,Linda,Gonzalez,HR,Recruiter,Boston,2019-11-21,24,82839,Needs Improvement,1237.89,2,113,3.0,No
+EMP0348,David,Miller,Sales,Sales Rep,New York,2019-09-22,1,125323,Below Expectations,0.0,12,116,4.9,Hybrid
+EMP0349,Elizabeth,Brown,HR,HR Coordinator,Seattle,2018-08-16,24,67130,Exceeds Expectations,7244.95,7,99,3.2,Hybrid
+EMP0350,Barbara,Wilson,Product,Scrum Master,Denver,2021-06-24,22,111197,Meets Expectations,6466.42,13,54,4.4,Hybrid
+EMP0351,Karen,Clark,Sales,Account Executive,Austin,2023-10-04,11,153662,Meets Expectations,5218.23,5,19,5.0,Hybrid
+EMP0352,Sandra,Garcia,Support,Technical Writer,Chicago,2018-07-15,18,104135,Meets Expectations,4974.83,13,64,2.0,Hybrid
+EMP0353,Margaret,Moore,Support,Support Engineer,New York,2018-12-08,14,84743,Below Expectations,0.0,10,33,4.6,Yes
+EMP0354,David,Smith,Engineering,Engineering Manager,Austin,2019-04-23,1,117509,Meets Expectations,7484.17,7,102,2.9,Yes
+EMP0355,Steven,Smith,Sales,Account Executive,Miami,2020-02-10,1,128060,Meets Expectations,3981.49,3,94,4.1,No
+EMP0356,Ashley,Gonzalez,Finance,Controller,Miami,2021-04-22,19,76674,Outstanding,14811.79,12,70,5.0,Yes
+EMP0357,Richard,Thomas,Product,UX Designer,Boston,2018-09-06,17,169974,Meets Expectations,13079.2,12,55,2.1,No
+EMP0358,Donna,Miller,Product,UX Designer,Seattle,2023-09-11,8,179764,Needs Improvement,3961.56,13,60,4.4,Yes
+EMP0359,Robert,Sanchez,Sales,Regional Director,San Francisco,2019-06-13,6,85488,Exceeds Expectations,12818.78,11,20,2.5,Hybrid
+EMP0360,Michael,Thompson,Operations,Facilities Manager,New York,2019-04-12,20,93793,Meets Expectations,4068.23,12,111,3.5,Hybrid
+EMP0361,Michael,Jones,Product,Scrum Master,Boston,2019-03-31,4,98816,Exceeds Expectations,9325.96,12,56,4.3,No
+EMP0362,Mark,Sanchez,Operations,Supply Chain Analyst,Austin,2019-05-19,7,104737,Exceeds Expectations,13622.51,4,19,4.3,Hybrid
+EMP0363,Betty,Harris,Marketing,Brand Manager,New York,2022-08-21,14,127653,Needs Improvement,1295.56,7,98,2.5,Yes
+EMP0364,Elizabeth,Thompson,Marketing,Growth Lead,Denver,2018-08-25,21,146554,Needs Improvement,1513.13,14,35,4.7,Hybrid
+EMP0365,Kimberly,Martinez,Product,UX Designer,Boston,2022-12-17,23,89845,Meets Expectations,6647.97,9,36,2.6,Hybrid
+EMP0366,Joshua,White,Marketing,Marketing Manager,New York,2018-04-25,18,91632,Exceeds Expectations,11352.22,11,120,2.4,No
+EMP0367,Daniel,Taylor,Product,Product Analyst,Austin,2020-08-25,24,130919,Meets Expectations,7676.87,7,66,4.2,Yes
+EMP0368,Emily,Thomas,Operations,Facilities Manager,Denver,2019-02-06,5,68151,Meets Expectations,3837.77,9,99,3.2,No
+EMP0369,Kenneth,Ramirez,Product,Scrum Master,Denver,2022-09-04,6,198150,Meets Expectations,6267.56,9,47,4.8,Yes
+EMP0370,Susan,Garcia,Sales,Account Executive,Miami,2022-02-22,19,70279,Meets Expectations,2607.84,1,119,4.7,No
+EMP0371,Donald,Jones,Engineering,Software Engineer,Boston,2021-11-29,3,209088,Needs Improvement,4779.45,9,81,3.4,No
+EMP0372,Kimberly,Williams,Sales,BDR,Austin,2022-08-05,13,116825,Exceeds Expectations,9548.84,5,71,3.9,Hybrid
+EMP0373,Betty,Jackson,Engineering,DevOps Engineer,New York,2023-11-08,7,193377,Meets Expectations,13912.68,2,103,3.6,No
+EMP0374,William,Johnson,Product,Product Manager,Boston,2021-10-24,14,96930,Exceeds Expectations,8895.36,2,19,2.9,No
+EMP0375,Anthony,Brown,Marketing,Marketing Manager,Seattle,2018-08-28,10,101948,Outstanding,24462.44,4,63,3.5,Hybrid
+EMP0376,Jennifer,Ramirez,Engineering,Staff Engineer,Austin,2023-03-19,18,148356,Meets Expectations,10110.3,3,38,3.7,No
+EMP0377,Anthony,Lopez,Marketing,SEO Specialist,Austin,2019-11-20,8,132764,Meets Expectations,4382.37,5,76,2.8,Hybrid
+EMP0378,Thomas,Harris,HR,HR Manager,Miami,2019-10-24,24,66759,Exceeds Expectations,6646.66,13,40,4.7,No
+EMP0379,Jennifer,Sanchez,HR,Recruiter,San Francisco,2021-08-10,11,57080,Meets Expectations,2891.57,12,62,4.3,Hybrid
+EMP0380,Richard,Williams,Engineering,Engineering Manager,Seattle,2019-05-21,12,201532,Meets Expectations,8278.14,5,87,4.8,No
+EMP0381,Kenneth,Jackson,Finance,Controller,Chicago,2023-07-16,12,162280,Meets Expectations,8928.04,4,84,4.2,Hybrid
+EMP0382,Margaret,Lee,Sales,BDR,New York,2019-06-10,24,81702,Outstanding,12444.17,11,71,4.6,Yes
+EMP0383,Jennifer,Lewis,Operations,Facilities Manager,New York,2022-07-25,9,107378,Exceeds Expectations,8943.25,6,0,3.2,No
+EMP0384,Patricia,Clark,Finance,Finance Manager,Boston,2018-11-01,8,110737,Meets Expectations,8499.4,4,13,3.4,No
+EMP0385,Margaret,Williams,Finance,Financial Analyst,San Francisco,2022-12-02,25,145882,Meets Expectations,10085.16,13,56,2.2,Hybrid
+EMP0386,Lisa,Jackson,Engineering,DevOps Engineer,Austin,2018-08-02,10,206401,Meets Expectations,12582.52,11,100,2.1,Hybrid
+EMP0387,Andrew,Lee,Sales,Account Executive,Boston,2018-02-20,20,73853,Meets Expectations,3113.47,1,16,2.9,No
+EMP0388,Richard,Lee,HR,HRBP,Austin,2019-08-20,5,93150,Meets Expectations,5156.35,14,6,3.3,Yes
+EMP0389,Joseph,Thompson,Sales,Sales Rep,Austin,2020-02-15,22,156066,Meets Expectations,11518.49,8,28,4.8,Hybrid
+EMP0390,Emily,Robinson,Product,Technical PM,Boston,2020-05-23,8,109149,Outstanding,16445.76,3,37,3.3,Hybrid
+EMP0391,Lisa,Robinson,Engineering,Software Engineer,Austin,2020-03-26,7,132237,Exceeds Expectations,13002.23,3,48,4.0,Yes
+EMP0392,Jessica,Robinson,HR,Benefits Specialist,New York,2020-09-10,12,124065,Exceeds Expectations,16828.53,6,40,3.8,Hybrid
+EMP0393,Andrew,Lopez,Finance,Auditor,Miami,2021-04-19,5,152504,Outstanding,26066.56,2,21,3.5,Hybrid
+EMP0394,Susan,Martinez,Product,UX Designer,Denver,2021-08-11,23,161177,Meets Expectations,5130.3,4,57,4.6,No
+EMP0395,Daniel,Rodriguez,Support,QA Analyst,Denver,2019-10-06,12,108262,Meets Expectations,6610.08,8,55,3.2,No
+EMP0396,Richard,Perez,Engineering,Senior Engineer,Boston,2022-12-15,8,129815,Meets Expectations,5372.66,6,4,3.6,No
+EMP0397,Andrew,Harris,HR,HR Coordinator,Chicago,2021-01-29,7,126188,Meets Expectations,6333.45,10,96,4.0,No
+EMP0398,Kimberly,Smith,Support,Customer Success Manager,Boston,2020-07-18,24,111438,Outstanding,20511.94,12,53,2.6,No
+EMP0399,David,Jones,Marketing,Growth Lead,Boston,2019-06-10,10,61268,Meets Expectations,3953.37,10,2,3.7,Yes
+EMP0400,Ashley,Smith,Support,Support Lead,Chicago,2020-04-16,13,93101,Below Expectations,0.0,3,4,4.5,Hybrid
+EMP0401,John,Gonzalez,Finance,Financial Analyst,Austin,2022-04-30,10,156451,Meets Expectations,11810.58,2,16,3.6,No
+EMP0402,Jessica,Taylor,Marketing,Content Strategist,Boston,2021-06-22,14,147135,Exceeds Expectations,16497.8,8,8,4.5,Hybrid
+EMP0403,Barbara,Thompson,Product,Scrum Master,San Francisco,2023-03-11,19,136260,Meets Expectations,5785.16,12,55,3.4,Hybrid
+EMP0404,William,Rodriguez,Support,Support Engineer,Austin,2020-09-08,6,114682,Below Expectations,0.0,13,99,3.0,No
+EMP0405,Ashley,Anderson,Engineering,Engineering Manager,San Francisco,2018-04-20,3,178737,Meets Expectations,7601.74,3,41,4.0,No
+EMP0406,Sarah,Jones,Sales,BDR,Miami,2020-09-19,23,122373,Exceeds Expectations,12309.52,2,85,4.3,Hybrid
+EMP0407,Richard,Robinson,Operations,Supply Chain Analyst,Austin,2020-06-06,23,66259,Meets Expectations,4274.85,10,0,2.1,No
+EMP0408,Daniel,Moore,Operations,Supply Chain Analyst,Austin,2020-03-30,3,85185,Below Expectations,0.0,1,53,3.5,No
+EMP0409,Robert,Williams,Finance,Auditor,Austin,2022-06-07,14,83878,Meets Expectations,4440.4,14,35,3.9,No
+EMP0410,Steven,Williams,Support,Technical Writer,Boston,2023-08-09,4,92513,Meets Expectations,5984.3,11,97,4.7,No
+EMP0411,Christopher,Miller,Engineering,DevOps Engineer,Chicago,2023-01-13,13,161981,Needs Improvement,1183.49,2,7,2.4,No
+EMP0412,Lisa,Hernandez,Support,Customer Success Manager,Austin,2018-06-05,8,86454,Meets Expectations,6819.35,5,96,2.1,Hybrid
+EMP0413,Jennifer,Garcia,Finance,Auditor,Austin,2018-08-10,22,149700,Meets Expectations,5014.84,11,18,4.8,Yes
+EMP0414,Betty,Gonzalez,Finance,Auditor,Chicago,2018-11-17,14,91516,Meets Expectations,7173.6,14,100,3.4,No
+EMP0415,Anthony,Anderson,Product,Scrum Master,Seattle,2022-09-28,17,184867,Meets Expectations,14064.06,3,70,4.2,No
+EMP0416,Nancy,Gonzalez,Product,Product Analyst,Miami,2022-03-17,18,105280,Outstanding,15836.01,7,118,3.2,No
+EMP0417,Patricia,Lee,HR,HRBP,Denver,2018-10-19,14,129135,Meets Expectations,8537.41,8,81,4.1,Hybrid
+EMP0418,Anthony,Gonzalez,Support,Customer Success Manager,San Francisco,2020-09-19,16,84253,Meets Expectations,5064.23,14,20,2.0,Yes
+EMP0419,Sarah,White,Finance,Finance Manager,Austin,2019-11-11,14,135620,Meets Expectations,4671.25,13,102,3.0,Yes
+EMP0420,Donald,Jackson,Support,Technical Writer,Austin,2018-01-27,6,118807,Meets Expectations,5789.77,4,62,2.5,Yes
+EMP0421,Michael,Smith,Marketing,Content Strategist,New York,2018-08-30,24,85150,Meets Expectations,3085.33,1,74,2.7,No
+EMP0422,Betty,Gonzalez,HR,HR Manager,New York,2018-06-21,4,123167,Needs Improvement,1267.67,6,104,2.7,No
+EMP0423,Mark,Perez,Operations,Logistics Coordinator,Austin,2019-02-15,1,63365,Meets Expectations,2688.38,11,84,4.6,Hybrid
+EMP0424,Michael,White,Engineering,Staff Engineer,Denver,2018-03-10,21,142212,Meets Expectations,6743.22,15,60,5.0,Hybrid
+EMP0425,Steven,Perez,HR,HRBP,Austin,2020-03-10,23,121143,Needs Improvement,3179.23,3,114,3.3,Yes
+EMP0426,Paul,Lee,Finance,Controller,Miami,2019-11-30,25,83824,Outstanding,18997.11,15,85,2.4,Yes
+EMP0427,Lisa,White,Sales,Sales Rep,Austin,2020-07-05,19,143732,Meets Expectations,10121.95,2,37,2.3,Yes
+EMP0428,Kenneth,Jackson,Sales,BDR,Austin,2022-02-15,5,106074,Meets Expectations,4877.51,11,119,4.4,Hybrid
+EMP0429,Andrew,Thompson,Sales,Regional Director,San Francisco,2018-02-07,18,125372,Meets Expectations,7931.98,12,4,3.8,No
+EMP0430,Ashley,White,HR,HRBP,Denver,2023-05-14,21,104375,Outstanding,17854.52,1,118,4.6,Yes
+EMP0431,Emily,Ramirez,HR,Recruiter,New York,2018-03-30,18,117052,Exceeds Expectations,11677.75,9,50,2.3,No
+EMP0432,Anthony,Wilson,HR,Benefits Specialist,Chicago,2019-11-02,19,73982,Needs Improvement,1277.7,11,100,5.0,Yes
+EMP0433,Anthony,Harris,Engineering,Software Engineer,San Francisco,2021-12-27,16,118544,Meets Expectations,4983.92,12,76,4.9,Hybrid
+EMP0434,Michael,Sanchez,Product,Scrum Master,Chicago,2021-02-01,21,100997,Meets Expectations,3146.19,10,61,2.8,Hybrid
+EMP0435,Paul,Thompson,Support,Support Lead,San Francisco,2022-11-12,10,74233,Outstanding,11281.53,8,8,3.6,Hybrid
+EMP0436,Karen,Lopez,Finance,Financial Analyst,Chicago,2020-01-11,20,142708,Exceeds Expectations,13027.06,1,10,4.9,Hybrid
+EMP0437,Robert,Davis,Support,Support Engineer,New York,2020-10-14,10,68331,Meets Expectations,5455.54,9,26,4.1,Hybrid
+EMP0438,Margaret,Thompson,Finance,Controller,Chicago,2021-05-12,7,98316,Meets Expectations,4826.25,7,58,2.2,No
+EMP0439,Paul,Brown,Finance,Financial Analyst,Denver,2021-01-08,21,163643,Exceeds Expectations,16715.35,10,31,2.2,Yes
+EMP0440,Emily,Clark,Sales,Sales Rep,Miami,2018-12-31,12,108714,Meets Expectations,3832.18,3,67,4.2,No
+EMP0441,Steven,Jackson,Sales,BDR,Chicago,2021-11-30,23,178429,Exceeds Expectations,19139.98,13,68,3.7,No
+EMP0442,Matthew,Sanchez,HR,HR Manager,Miami,2023-10-05,23,104650,Outstanding,22386.66,7,90,3.4,No
+EMP0443,Christopher,Moore,HR,HR Coordinator,Miami,2022-10-19,17,66395,Meets Expectations,4415.11,3,73,2.2,Hybrid
+EMP0444,Dorothy,Perez,Engineering,Engineering Manager,New York,2023-09-15,24,112881,Meets Expectations,7417.19,12,44,2.7,Hybrid
+EMP0445,Christopher,Martinez,Product,UX Designer,Miami,2023-11-15,8,140407,Meets Expectations,6584.8,14,69,4.6,Yes
+EMP0446,Matthew,Brown,HR,HR Coordinator,New York,2020-05-22,1,83503,Outstanding,20336.44,1,78,3.4,No
+EMP0447,Karen,Lopez,Operations,Supply Chain Analyst,Denver,2022-07-05,12,71107,Outstanding,13586.55,5,28,3.4,No
+EMP0448,William,Perez,Marketing,Growth Lead,Austin,2021-01-08,4,117587,Meets Expectations,4642.14,7,53,4.2,Yes
+EMP0449,Andrew,Smith,Product,Product Analyst,Austin,2019-05-02,14,150779,Needs Improvement,4331.93,13,2,2.4,No
+EMP0450,Jessica,Perez,Engineering,Staff Engineer,Denver,2022-10-26,20,191656,Needs Improvement,1434.35,13,14,4.6,Hybrid
+EMP0451,Anthony,Wilson,Finance,Finance Manager,Seattle,2019-02-27,23,93748,Exceeds Expectations,9297.02,1,78,2.6,Yes
+EMP0452,Daniel,Miller,Finance,Controller,Seattle,2021-10-08,14,125977,Meets Expectations,5334.93,3,5,2.0,Hybrid
+EMP0453,Dorothy,Martin,Product,Product Analyst,Boston,2019-02-17,14,97699,Meets Expectations,3567.52,13,46,4.2,Hybrid
+EMP0454,Paul,White,Finance,Accountant,Chicago,2020-05-10,19,87102,Needs Improvement,896.01,12,60,5.0,Yes
+EMP0455,Sarah,Thompson,Engineering,Senior Engineer,Chicago,2020-02-25,14,167154,Meets Expectations,9049.89,9,101,2.1,Hybrid
+EMP0456,Susan,Jackson,HR,HR Manager,New York,2018-09-07,23,124791,Meets Expectations,6178.7,4,23,2.0,Hybrid
+EMP0457,Jessica,Clark,Product,Technical PM,Austin,2023-11-21,9,107427,Exceeds Expectations,10788.79,5,118,2.4,Yes
+EMP0458,Barbara,Rodriguez,Sales,Account Executive,New York,2021-11-24,21,113380,Outstanding,20350.52,6,28,4.2,No
+EMP0459,Steven,Williams,Sales,Regional Director,Miami,2020-11-20,21,144212,Exceeds Expectations,20200.57,12,92,3.3,Yes
+EMP0460,Betty,Brown,Marketing,Brand Manager,Chicago,2020-01-28,6,124293,Exceeds Expectations,13373.16,2,54,2.7,Hybrid
+EMP0461,Jennifer,Miller,Engineering,DevOps Engineer,Chicago,2019-02-13,13,145330,Exceeds Expectations,18008.84,13,13,3.6,No
+EMP0462,Joseph,Smith,Product,Technical PM,Austin,2022-12-25,6,167245,Meets Expectations,9571.78,15,107,3.2,Yes
+EMP0463,Robert,Martin,Support,Support Lead,Chicago,2019-08-27,12,114463,Below Expectations,0.0,6,15,3.1,Yes
+EMP0464,Elizabeth,Harris,Marketing,Brand Manager,Chicago,2023-12-13,11,149054,Outstanding,26398.85,15,91,4.4,Yes
+EMP0465,Mark,Martin,Operations,Supply Chain Analyst,Boston,2022-05-19,15,135739,Meets Expectations,5306.53,6,63,3.3,Hybrid
+EMP0466,James,Miller,Marketing,Content Strategist,New York,2022-04-19,14,130614,Exceeds Expectations,15266.98,4,89,2.3,No
+EMP0467,Linda,Thompson,Operations,Process Engineer,Chicago,2023-04-26,5,78264,Exceeds Expectations,11585.21,14,28,2.2,Yes
+EMP0468,David,White,Support,Support Engineer,Seattle,2022-10-06,12,70732,Exceeds Expectations,6871.84,7,19,4.3,No
+EMP0469,Thomas,Robinson,Product,Scrum Master,Seattle,2021-10-13,15,169207,Exceeds Expectations,19497.84,11,112,3.4,Hybrid
+EMP0470,Betty,Clark,Finance,Finance Manager,Denver,2019-10-05,9,86401,Meets Expectations,5206.02,12,59,3.4,Hybrid
+EMP0471,Richard,Moore,Marketing,Marketing Manager,Austin,2022-03-02,21,95378,Needs Improvement,304.63,4,76,2.0,No
+EMP0472,Matthew,Jones,Engineering,Senior Engineer,San Francisco,2021-01-07,3,169727,Exceeds Expectations,25227.87,9,24,2.9,No
+EMP0473,Elizabeth,Harris,Operations,Facilities Manager,Chicago,2023-08-25,4,122515,Exceeds Expectations,10476.59,4,113,2.6,Hybrid
+EMP0474,Kimberly,Ramirez,Operations,Facilities Manager,San Francisco,2019-06-22,11,110807,Below Expectations,0.0,2,103,2.0,No
+EMP0475,David,Brown,Product,Product Manager,Miami,2023-02-06,11,131316,Exceeds Expectations,17601.05,5,97,4.6,Hybrid
+EMP0476,Robert,Martin,Engineering,Staff Engineer,New York,2021-03-20,13,148612,Outstanding,36440.33,5,112,4.6,Hybrid
+EMP0477,Michael,Williams,Finance,Auditor,Chicago,2018-02-02,5,119259,Exceeds Expectations,13399.88,11,68,4.7,No
+EMP0478,Joshua,Johnson,Sales,Regional Director,Denver,2022-11-10,7,108086,Needs Improvement,505.0,8,18,3.9,No
+EMP0479,Thomas,Garcia,Engineering,Staff Engineer,New York,2022-10-28,16,122973,Exceeds Expectations,12195.65,8,111,3.3,Yes
+EMP0480,Richard,Williams,Sales,Regional Director,Chicago,2021-11-01,25,86565,Meets Expectations,4132.15,7,105,2.0,Hybrid
+EMP0481,Robert,Miller,Operations,Logistics Coordinator,Austin,2018-02-28,5,74890,Meets Expectations,5364.04,8,81,4.9,Yes
+EMP0482,Mark,Wilson,Support,QA Analyst,Boston,2019-11-12,20,51883,Outstanding,7866.46,12,63,3.9,No
+EMP0483,Donna,Robinson,Operations,Process Engineer,San Francisco,2022-10-11,17,116149,Meets Expectations,5139.76,11,55,3.9,Hybrid
+EMP0484,Linda,Miller,Sales,Account Executive,Miami,2019-01-03,21,145774,Meets Expectations,6486.25,4,99,3.4,No
+EMP0485,James,Lewis,Sales,Sales Rep,Denver,2023-03-16,14,172533,Exceeds Expectations,24425.93,13,116,3.2,Yes
+EMP0486,Margaret,Jones,Engineering,Software Engineer,Denver,2018-04-18,5,198613,Below Expectations,0.0,14,6,4.4,Hybrid
+EMP0487,Mary,Wilson,Marketing,Brand Manager,New York,2021-07-27,17,90273,Meets Expectations,6845.7,3,41,2.6,Yes
+EMP0488,Patricia,Rodriguez,Marketing,Marketing Manager,San Francisco,2018-11-19,19,77111,Outstanding,13856.25,13,48,4.3,Hybrid
+EMP0489,Ashley,Lee,Marketing,Marketing Manager,San Francisco,2019-02-28,4,76080,Exceeds Expectations,8011.06,8,101,2.1,Yes
+EMP0490,William,Taylor,Finance,Finance Manager,Seattle,2022-03-18,11,93567,Meets Expectations,7372.69,8,78,3.8,Yes
+EMP0491,Jennifer,Lopez,Sales,Sales Manager,Seattle,2018-05-02,18,132894,Outstanding,20326.11,3,34,2.8,Yes
+EMP0492,Margaret,Martin,Product,Scrum Master,Seattle,2022-11-22,17,136488,Exceeds Expectations,16532.86,12,62,3.3,No
+EMP0493,Matthew,Gonzalez,Operations,Process Engineer,New York,2019-03-17,20,109015,Exceeds Expectations,12623.39,14,112,3.9,Hybrid
+EMP0494,Joseph,Moore,Sales,Sales Manager,San Francisco,2021-08-14,14,89368,Exceeds Expectations,7209.7,4,59,3.7,No
+EMP0495,Linda,Brown,Support,Technical Writer,Miami,2020-05-19,17,105279,Needs Improvement,2535.3,8,5,5.0,No
+EMP0496,Steven,Brown,Marketing,Growth Lead,Denver,2021-08-31,19,135551,Meets Expectations,10138.06,1,43,3.9,Yes
+EMP0497,Mary,Davis,HR,HR Coordinator,New York,2021-07-23,25,96048,Meets Expectations,5960.24,14,47,4.8,Yes
+EMP0498,Linda,Johnson,Engineering,Senior Engineer,Seattle,2019-03-07,11,207903,Outstanding,38854.57,14,6,2.8,Yes
+EMP0499,Dorothy,Taylor,Sales,Sales Rep,Austin,2021-09-10,23,168760,Exceeds Expectations,22396.55,7,81,3.3,Yes
+EMP0500,Patricia,Miller,Product,Scrum Master,New York,2021-02-23,11,178242,Exceeds Expectations,25150.14,4,88,2.2,No

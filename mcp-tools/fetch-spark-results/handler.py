@@ -22,6 +22,10 @@ def lambda_handler(event, context):
     max_rows = event.get('max_rows', 100)
     presigned_url_expiry_hours = event.get('presigned_url_expiry_hours', 24)
     region = event.get('region', 'us-east-1')
+    session_id = event.get('session_id', '')
+
+    from progress import update_progress
+    update_progress(s3_bucket, session_id, "fetch_spark_results", "running", "Fetching results from S3...", region)
 
     try:
         s3_client = boto3.client('s3', region_name=region)
@@ -124,6 +128,7 @@ def lambda_handler(event, context):
             's3_path': f"s3://{bucket}/{most_recent_file}",
         }
 
+        update_progress(s3_bucket, session_id, "fetch_spark_results", "complete", f"Fetched {len(df)} rows", region)
         return {'statusCode': 200, 'body': json.dumps(result, default=str)}
 
     except Exception as e:

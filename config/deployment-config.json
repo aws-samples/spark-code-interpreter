@@ -1,8 +1,14 @@
 {
   "spark": {
-    "supervisor_arn": "arn:aws:bedrock-agentcore:us-east-1:914787431788:runtime/spark_supervisor_agent-LUFQfC7cMH"
+    "supervisor_arn": "arn:aws:bedrock-agentcore:us-east-1:914787431788:runtime/spark_supervisor_agent-LUFQfC7cMH",
+    "s3_bucket": "spark-data-914787431788-us-east-1",
+    "lambda_function": "dev-spark-on-lambda",
+    "emr_application_id": "00g3oapr87misc09",
+    "emr_execution_role_arn": "arn:aws:iam::914787431788:role/dev-spark-emr-execution-role"
   },
   "global": {
-    "code_gen_agent_arn": "arn:aws:bedrock-agentcore:us-east-1:914787431788:runtime/ray_code_interpreter-5OXxb1FQfD"
+    "code_gen_agent_arn": "arn:aws:bedrock-agentcore:us-east-1:914787431788:runtime/spark_code_generator-Q8EJ8p53TZ",
+    "bedrock_model": "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    "bedrock_region": "us-east-1"
   }
 }

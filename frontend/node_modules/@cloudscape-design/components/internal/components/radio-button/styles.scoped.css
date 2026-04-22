@@ -1,0 +1,211 @@
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/* stylelint-disable @cloudscape-design/no-motion-outside-of-mixin, selector-combinator-disallowed-list, selector-pseudo-class-no-unknown, selector-class-pattern */
+/* stylelint-enable @cloudscape-design/no-motion-outside-of-mixin, selector-combinator-disallowed-list, selector-pseudo-class-no-unknown, selector-class-pattern */
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/* Style used for links in slots/components that are text heavy, to help links stand out among
+surrounding text. (WCAG F73) https://www.w3.org/WAI/WCAG21/Techniques/failures/F73#description */
+.awsui_radio-control_1v1hk_ykhrv_145:not(#\9) {
+  margin-block-start: calc((var(--line-height-body-m-2mh3ke, 20px) - var(--size-control-adm93y, 16px)) / 2);
+  min-block-size: var(--size-control-adm93y, 16px);
+  min-inline-size: var(--size-control-adm93y, 16px);
+  block-size: var(--size-control-adm93y, 16px);
+  inline-size: var(--size-control-adm93y, 16px);
+}
+
+.awsui_outline_1v1hk_ykhrv_153:not(#\9) {
+  --awsui-style-focus-ring-box-shadow-6b9ypa: 0 0 0 var(--awsui-style-focus-ring-border-width-6b9ypa, 2px) var(--awsui-style-focus-ring-border-color-6b9ypa, var(--color-border-item-focused-uk47pl, #006ce0));
+  position: relative;
+}
+.awsui_outline_1v1hk_ykhrv_153:not(#\9) {
+  outline: 2px dotted transparent;
+  outline-offset: calc(2px - 1px);
+}
+.awsui_outline_1v1hk_ykhrv_153:not(#\9)::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  inset-inline-start: calc(-1 * 2px);
+  inset-block-start: calc(-1 * 2px);
+  inline-size: calc(100% + 2px + 2px);
+  block-size: calc(100% + 2px + 2px);
+  border-start-start-radius: var(--awsui-style-focus-ring-border-radius-6b9ypa, var(--border-radius-control-circular-focus-ring-yjhscw, 4px));
+  border-start-end-radius: var(--awsui-style-focus-ring-border-radius-6b9ypa, var(--border-radius-control-circular-focus-ring-yjhscw, 4px));
+  border-end-start-radius: var(--awsui-style-focus-ring-border-radius-6b9ypa, var(--border-radius-control-circular-focus-ring-yjhscw, 4px));
+  border-end-end-radius: var(--awsui-style-focus-ring-border-radius-6b9ypa, var(--border-radius-control-circular-focus-ring-yjhscw, 4px));
+  box-shadow: var(--awsui-style-focus-ring-box-shadow-6b9ypa);
+}
+
+.awsui_styled-circle-border_1v1hk_ykhrv_176:not(#\9) {
+  stroke: var(--color-border-control-default-sh3548, #8c8c94);
+  fill: var(--color-background-control-default-4jb21l, #ffffff);
+}
+.awsui_styled-circle-border_1v1hk_ykhrv_176.awsui_styled-circle-disabled_1v1hk_ykhrv_180:not(#\9), .awsui_styled-circle-border_1v1hk_ykhrv_176.awsui_styled-circle-readonly_1v1hk_ykhrv_180:not(#\9) {
+  fill: var(--color-background-control-disabled-1f3718, #dedee3);
+  stroke: var(--color-background-control-disabled-1f3718, #dedee3);
+}
+
+.awsui_styled-circle-fill_1v1hk_ykhrv_185:not(#\9) {
+  stroke: var(--color-background-control-checked-ka7kc2, #006ce0);
+  fill: var(--color-foreground-control-default-eto4wy, #ffffff);
+  opacity: 0;
+  transition: opacity var(--motion-duration-transition-quick-mcm2y0, 90ms) var(--motion-easing-transition-quick-qxak3i, linear);
+}
+@media (prefers-reduced-motion: reduce) {
+  .awsui_styled-circle-fill_1v1hk_ykhrv_185:not(#\9) {
+    animation: none;
+    transition: none;
+  }
+}
+.awsui-motion-disabled .awsui_styled-circle-fill_1v1hk_ykhrv_185:not(#\9), .awsui-mode-entering .awsui_styled-circle-fill_1v1hk_ykhrv_185:not(#\9) {
+  animation: none;
+  transition: none;
+}
+.awsui_styled-circle-fill_1v1hk_ykhrv_185.awsui_styled-circle-checked_1v1hk_ykhrv_201:not(#\9) {
+  opacity: 1;
+}
+.awsui_styled-circle-fill_1v1hk_ykhrv_185.awsui_styled-circle-disabled_1v1hk_ykhrv_180:not(#\9) {
+  fill: var(--color-foreground-control-disabled-txi6cf, #ffffff);
+  stroke: var(--color-background-control-disabled-1f3718, #dedee3);
+}
+.awsui_styled-circle-fill_1v1hk_ykhrv_185.awsui_styled-circle-readonly_1v1hk_ykhrv_180:not(#\9) {
+  fill: var(--color-foreground-control-read-only-7ydvuj, #656871);
+  stroke: var(--color-background-control-disabled-1f3718, #dedee3);
+}

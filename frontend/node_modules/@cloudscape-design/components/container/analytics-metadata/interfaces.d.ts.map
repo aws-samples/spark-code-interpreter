@@ -1,0 +1,1 @@
+{"version":3,"file":"interfaces.d.ts","sourceRoot":"","sources":["../../../../src/container/analytics-metadata/interfaces.ts"],"names":[],"mappings":"AAGA,OAAO,EAAE,eAAe,EAAE,MAAM,kEAAkE,CAAC;AAEnG,MAAM,WAAW,4CAA4C;IAC3D,IAAI,EAAE,iBAAiB,CAAC;IACxB,KAAK,EAAE,MAAM,GAAG,eAAe,CAAC;CACjC"}

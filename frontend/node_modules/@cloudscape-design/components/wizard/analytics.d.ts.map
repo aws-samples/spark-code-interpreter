@@ -1,0 +1,1 @@
+{"version":3,"file":"analytics.d.ts","sourceRoot":"","sources":["../../../src/wizard/analytics.ts"],"names":[],"mappings":"AAOA,OAAO,EAAE,WAAW,EAAE,MAAM,cAAc,CAAC;AAE3C,wBAAgB,oBAAoB,CAClC,mBAAmB,EAAE,MAAM,GAAG,SAAS,EACvC,gBAAgB,EAAE,MAAM,GAAG,SAAS,EACpC,KAAK,EAAE,WAAW,CAAC,OAAO,CAAC,QA+B5B;AAED,wBAAgB,oBAAoB,CAAC,KAAK,EAAE,WAAW,CAAC,OAAO,CAAC;;;;;IAW/D"}

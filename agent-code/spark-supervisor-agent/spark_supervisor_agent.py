@@ -102,6 +102,7 @@ def call_code_generation_agent(prompt: str, session_id: str, s3_input_path: str 
         'selected_tables': selected_tables,
         'selected_postgres_tables': selected_postgres_tables,
         's3_output_path': s3_output_path,
+        's3_bucket': config.get('s3_bucket', ''),
         'model_id': config.get('model_id') or config.get('bedrock_model'),
         'code_gen_agent_arn': config.get('code_gen_agent_arn'),
         'jdbc_driver_path': config.get('jdbc_driver_path'),
@@ -269,6 +270,7 @@ def execute_spark_code_lambda(spark_code: str, s3_output_path: str) -> dict:
         's3_output_path': s3_output_path,
         'lambda_function': config.get('lambda_function', ''),
         's3_bucket': config.get('s3_bucket', ''),
+        'session_id': CURRENT_SESSION_ID or '',
         'spark_config': config.get('spark_config', {}),
         'region': config.get('bedrock_region', AWS_REGION),
     })
@@ -462,6 +464,7 @@ def fetch_spark_results(s3_output_path: str, max_rows: int = None) -> dict:
     return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-fetch-spark-results", {
         's3_output_path': s3_output_path,
         's3_bucket': config.get('s3_bucket', ''),
+        'session_id': CURRENT_SESSION_ID or '',
         'max_rows': max_rows or config.get('result_preview_rows', 100),
         'presigned_url_expiry_hours': config.get('presigned_url_expiry_hours', 24),
         'region': config.get('bedrock_region', AWS_REGION),

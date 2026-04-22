@@ -1,0 +1,19 @@
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+/*
+ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ SPDX-License-Identifier: Apache-2.0
+*/
+.awsui_variant-normal_1a743_14khj_9.awsui_pressed_1a743_14khj_9:not(#\9) {
+  background: var(--color-background-toggle-button-normal-pressed-4khex7, #d1f1ff);
+  border-color: var(--color-border-toggle-button-normal-pressed-tq8o41, #006ce0);
+  color: var(--color-text-toggle-button-normal-pressed-wnx2zl, #002b66);
+}
+
+.awsui_variant-icon_1a743_14khj_15.awsui_pressed_1a743_14khj_9:not(#\9) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text-toggle-button-icon-pressed-detfkz, #0f141a);
+}

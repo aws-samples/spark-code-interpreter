@@ -7,31 +7,65 @@ import boto3
 
 
 # The full Spark code generation system prompt (extracted from spark_supervisor_agent.py)
-SPARK_SYSTEM_PROMPT = """You are a Spark code generation specialist with intelligent column matching capabilities.
+SPARK_SYSTEM_PROMPT = """You are a Spark code generation specialist.
 
-Generate PySpark code for data analysis with automatic column name resolution.
+Generate PySpark code for data analysis. Keep the code simple and direct.
 
 CRITICAL - DO NOT SYNTHESIZE DATA:
 - NEVER create sample data, synthetic data, or fake data in the code
-- NEVER use createDataFrame with hardcoded values
 - ALWAYS read from the actual data sources provided in the context
-- If data sources are provided (S3, Glue, PostgreSQL), you MUST read from them
 - Only generate sample data if the user explicitly requests it AND no data sources are provided
 
-INTELLIGENT COLUMN MATCHING:
-- When user mentions column names that don't exactly match, find the closest matching column
-- Use fuzzy matching, partial matching, and semantic understanding
+CRITICAL - SIMPLE, DIRECT CODE:
+- Do NOT write column-matching loops or detection logic
+- Do NOT iterate over columns to find matches
+- Read the CSV with inferSchema=true, then use the actual column names directly
+- If the user says "total sales", use the column named "total_sales" (or the closest match)
+- If unsure which column, use df.printSchema() output to pick the right one, but hardcode the column name in the query
+
+COLUMN SELECTION RULES (in priority order):
+1. EXACT MATCH: If a column name exactly matches what the user asked for, use it
+2. CONTAINS FULL TERM: "total_sales" matches "total sales" better than "unit_price" matches "sales"
+3. PREFER AGGREGATED COLUMNS: For sum/total queries, prefer columns with "total" in the name over raw unit values
+4. NEVER loop through columns at runtime to find matches — decide the column at code-generation time
+
+EXAMPLE - CORRECT (simple, direct):
+```python
+import json
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, sum as _sum
+
+spark = SparkSession.builder.appName("Query").getOrCreate()
+df = spark.read.option("header", "true").option("inferSchema", "true").csv("s3://bucket/data.csv")
+
+result = df.filter(col("category") == "Electronics").agg(_sum("total_sales").alias("total_sales"))
+result.show()
+
+data = [row.asDict() for row in result.collect()]
+with open('/tmp/output.json', 'w') as f:
+    json.dump({"status": "success", "row_count": len(data), "data": data}, f)
+spark.stop()
+```
+
+EXAMPLE - WRONG (do NOT generate code like this):
+```python
+# DO NOT DO THIS - no runtime column detection loops
+for col_name in columns:
+    if 'sales' in col_name.lower():
+        sales_col = col_name
+        break
+```
 
 DATA SOURCES:
-- S3 files: Use spark.read.option("header", "true").csv(s3_path)
+- S3 files: Use spark.read.option("header", "true").option("inferSchema", "true").csv(s3_path)
 - Glue tables: Use spark.table("database.table") with Glue catalog configuration
 - PostgreSQL tables: Use JDBC with credentials based on auth_method from context
 
 CRITICAL - SPARK COLUMN OPERATIONS:
 - NEVER use Python lists directly in Spark operations
-- For filtering multiple values: Use col("column").isin([val1, val2, val3])
-- For array literals: Use array([lit(val1), lit(val2), lit(val3)])
-- Always import required functions: from pyspark.sql.functions import col, lit, array, when, etc.
+- For filtering: Use col("column").isin([val1, val2, val3])
+- Always import: from pyspark.sql.functions import col, lit, sum as _sum, count, avg, etc.
+- Use _sum instead of sum to avoid shadowing Python's built-in sum
 
 CRITICAL - GLUE CATALOG CONFIGURATION:
 When the prompt mentions Glue tables, include:
@@ -116,6 +150,10 @@ def lambda_handler(event, context):
         model_id = event['model_id']
         code_gen_agent_arn = event['code_gen_agent_arn']
         region = event.get('region', 'us-east-1')
+        s3_bucket = event.get('s3_bucket', '')
+
+        from progress import update_progress
+        update_progress(s3_bucket, session_id, "generate_spark_code", "running", "Generating PySpark code...", region)
 
         # Build data context from parameters
         data_context = _build_data_context(event)
@@ -143,20 +181,18 @@ def lambda_handler(event, context):
 
         if 'response' in response:
             code = response['response'].read().decode('utf-8')
-            # Clean up code blocks
             if code.startswith('```python'):
                 code = code[10:-3].strip()
             elif code.startswith('```'):
                 code = code[3:-3].strip()
+            lines = len(code.strip().split('\n'))
+            update_progress(s3_bucket, session_id, "generate_spark_code", "complete", f"Generated {lines} lines of PySpark code", region)
             return {'statusCode': 200, 'body': json.dumps({'status': 'success', 'code': code})}
         else:
-            return {
-                'statusCode': 500,
-                'body': json.dumps({'status': 'error', 'error': 'No response from code generation agent'}),
-            }
+            update_progress(s3_bucket, session_id, "generate_spark_code", "error", "No response from agent", region)
+            return {'statusCode': 500, 'body': json.dumps({'status': 'error', 'error': 'No response from code generation agent'})}
 
     except Exception as e:
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'status': 'error', 'error': str(e)}),
-        }
+        from progress import update_progress
+        update_progress(event.get('s3_bucket', ''), event.get('session_id', ''), "generate_spark_code", "error", str(e), event.get('region', 'us-east-1'))
+        return {'statusCode': 500, 'body': json.dumps({'status': 'error', 'error': str(e)})}

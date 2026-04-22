@@ -1,21 +1,21 @@
-default_agent: code_generation_agent
+default_agent: spark_code_generator
 agents:
-  code_generation_agent:
-    name: code_generation_agent
+  spark_code_generator:
+    name: spark_code_generator
     language: python
     node_version: null
     entrypoint: /Users/vivekml/Documents/PROJECTS/OpenSource/spark-code-interpreter/agent-code/code-generation-agent/agents.py
     deployment_type: container
     runtime_type: null
     platform: linux/arm64
-    container_runtime: none
+    container_runtime: docker
     source_path: null
     aws:
-      execution_role: arn:aws:iam::914787431788:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-172fa0f4df
+      execution_role: arn:aws:iam::914787431788:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-dd1908825f
       execution_role_auto_create: false
       account: '914787431788'
       region: us-east-1
-      ecr_repository: 914787431788.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-code_generation_agent
+      ecr_repository: 914787431788.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-spark_code_generator
       ecr_auto_create: false
       s3_path: null
       s3_auto_create: false
@@ -30,12 +30,12 @@ agents:
         idle_runtime_session_timeout: null
         max_lifetime: null
     bedrock_agentcore:
-      agent_id: ray_code_interpreter-5OXxb1FQfD
-      agent_arn: arn:aws:bedrock-agentcore:us-east-1:914787431788:runtime/ray_code_interpreter-5OXxb1FQfD
+      agent_id: spark_code_generator-Q8EJ8p53TZ
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:914787431788:runtime/spark_code_generator-Q8EJ8p53TZ
       agent_session_id: null
     codebuild:
-      project_name: bedrock-agentcore-code_generation_agent-builder
-      execution_role: arn:aws:iam::914787431788:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-172fa0f4df
+      project_name: bedrock-agentcore-spark_code_generator-builder
+      execution_role: arn:aws:iam::914787431788:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-dd1908825f
       source_bucket: bedrock-agentcore-codebuild-sources-914787431788-us-east-1
     memory:
       mode: NO_MEMORY

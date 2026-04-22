@@ -15,6 +15,10 @@ def lambda_handler(event, context):
         s3_bucket = event['s3_bucket']
         spark_config = event.get('spark_config', {})
         region = event.get('region', 'us-east-1')
+        session_id = event.get('session_id', '')
+
+        from progress import update_progress
+        update_progress(s3_bucket, session_id, "execute_spark_on_lambda", "running", "Executing PySpark on Lambda...", region)
 
         lambda_client = boto3.client(
             'lambda',
@@ -54,14 +58,10 @@ def lambda_handler(event, context):
             'lambda_function': lambda_function,
         }
 
+        update_progress(s3_bucket, session_id, "execute_spark_on_lambda", "complete" if lambda_status == "success" else "error", f"Lambda execution {lambda_status}", region)
         return {'statusCode': 200, 'body': json.dumps(tool_result)}
 
     except Exception as e:
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'status': 'error',
-                'execution_platform': 'lambda',
-                'error': str(e),
-            }),
-        }
+        from progress import update_progress
+        update_progress(event.get('s3_bucket', ''), event.get('session_id', ''), "execute_spark_on_lambda", "error", str(e), event.get('region', 'us-east-1'))
+        return {'statusCode': 500, 'body': json.dumps({'status': 'error', 'execution_platform': 'lambda', 'error': str(e)})}

@@ -11,6 +11,11 @@ def lambda_handler(event, context):
         database_name = event['database_name']
         table_name = event['table_name']
         region = event.get('region', 'us-east-1')
+        s3_bucket = event.get('s3_bucket', '')
+        session_id = event.get('session_id', '')
+
+        from progress import update_progress
+        update_progress(s3_bucket, session_id, "get_glue_table_schema", "running", f"Fetching schema for {database_name}.{table_name}...", region)
 
         glue_client = boto3.client('glue', region_name=region)
         response = glue_client.get_table(DatabaseName=database_name, Name=table_name)
@@ -39,6 +44,7 @@ def lambda_handler(event, context):
             'parameters': table.get('Parameters', {}),
         }
 
+        update_progress(s3_bucket, session_id, "get_glue_table_schema", "complete", f"Schema fetched: {len(columns)} columns", region)
         return {'statusCode': 200, 'body': json.dumps(result)}
 
     except Exception as e:

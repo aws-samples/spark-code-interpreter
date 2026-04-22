@@ -22,6 +22,9 @@ def lambda_handler(event, context):
         s3_client = boto3.client('s3', region_name=region)
         emr_client = boto3.client('emr-serverless', region_name=region)
 
+        from progress import update_progress
+        update_progress(s3_bucket, session_id, "execute_spark_on_emr", "running", "Submitting job to EMR Serverless...", region)
+
         # Save validated code to S3 for backend retrieval
         if session_id and s3_bucket:
             code_key = f"{session_id}/{session_id}_code.py"
@@ -84,6 +87,7 @@ def lambda_handler(event, context):
                     'job_state': state,
                     'emr_application_id': emr_application_id,
                 }
+                update_progress(s3_bucket, session_id, "execute_spark_on_emr", "complete" if state == "SUCCESS" else "error", f"EMR job {state}", region)
                 return {'statusCode': 200, 'body': json.dumps(tool_result)}
 
             time.sleep(10)

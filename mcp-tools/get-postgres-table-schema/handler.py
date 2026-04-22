@@ -24,6 +24,11 @@ def lambda_handler(event, context):
     schema = event['schema']
     table = event['table']
     region = event.get('region', 'us-east-1')
+    s3_bucket = event.get('s3_bucket', '')
+    session_id = event.get('session_id', '')
+
+    from progress import update_progress
+    update_progress(s3_bucket, session_id, "get_postgres_table_schema", "running", f"Fetching schema for {schema}.{table}...", region)
 
     try:
         # Get credentials from Secrets Manager
@@ -73,6 +78,7 @@ def lambda_handler(event, context):
             'jdbc_url': jdbc_url,
         }
 
+        update_progress(s3_bucket, session_id, "get_postgres_table_schema", "complete", f"Schema fetched: {len(columns)} columns", region)
         return {'statusCode': 200, 'body': json.dumps(result)}
 
     except Exception as e:

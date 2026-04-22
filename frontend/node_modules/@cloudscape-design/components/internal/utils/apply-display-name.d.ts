@@ -1,0 +1,1 @@
+export declare function applyDisplayName<T>(component: T, displayName: string): void;

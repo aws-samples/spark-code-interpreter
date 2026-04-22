@@ -1,6 +1,7 @@
 # Documentation and Archive directories
 docs/
 archive/
+.kiro/
 
 # Test/verification files
 sample_sales_data.csv

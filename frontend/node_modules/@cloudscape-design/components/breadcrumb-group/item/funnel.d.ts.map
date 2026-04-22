@@ -1,0 +1,1 @@
+{"version":3,"file":"funnel.d.ts","sourceRoot":"","sources":["../../../../src/breadcrumb-group/item/funnel.tsx"],"names":[],"mappings":"AAEA,OAAO,KAAK,MAAM,OAAO,CAAC;AAW1B,UAAU,yBAAyB;IACjC,SAAS,CAAC,EAAE,MAAM,CAAC;IACnB,IAAI,EAAE,MAAM,CAAC;IACb,SAAS,EAAE,MAAM,CAAC;IAClB,UAAU,EAAE,MAAM,CAAC;IACnB,gBAAgB,CAAC,EAAE,OAAO,CAAC;CAC5B;AAED,eAAO,MAAM,oBAAoB,mGAsBhC,CAAC"}

@@ -14,6 +14,7 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
 <img src="images/architecture-mcp.png" width="1000"/>
 
 
+
 ### Solution Flow
 
 1. **Authenticate** -- User authenticates via Amazon Cognito and receives a JWT token with the `spark-api/spark.execute` scope.
@@ -26,39 +27,6 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
 8. **Results & Visualization** -- Results are returned to the React UI as tables and charts.
 9. **Audit & Monitoring** -- Every step is captured by **CloudTrail** (agent invocations, model calls, data access). **EventBridge** rules fire alerts on failures, throttling, or unauthorized access attempts.
 
-### Security Layers
-
-```
-                          ┌─────────────────────────────────────────────┐
-                          │              Monitoring & Audit             │
-                          │   CloudTrail ─── EventBridge ─── SNS/Ops   │
-                          └──────────────────┬──────────────────────────┘
-                                             │ logs every call
-  ┌──────────┐    JWT     ┌──────────────────▼──────────────────┐
-  │  Cognito  │──────────▶│       AgentCore Gateway             │
-  │ User Pool │  (scope:  │  ┌────────────────────────────┐     │
-  └──────────┘  spark.    │  │   Cedar Authorization      │     │
-                execute)  │  │   Policies                  │     │
-                          │  │  • Session-scoped access    │     │
-                          │  │  • Deny destructive SQL     │     │
-                          │  │  • S3 bucket tag checks     │     │
-                          │  │  • Validated-code-only EMR  │     │
-                          │  └────────────────────────────┘     │
-                          └──────────────────┬──────────────────┘
-                                             │
-                          ┌──────────────────▼──────────────────┐
-                          │      Spark Supervisor Agent          │
-                          │      (IAM execution role)            │
-                          └──┬────────┬────────┬────────┬───────┘
-                             │        │        │        │
-                          ┌──▼──┐  ┌──▼──┐  ┌──▼──┐  ┌─▼────┐
-                          │ S3  │  │Glue │  │ SoAL│  │ EMR  │
-                          │(IAM)│  │(IAM)│  │(IAM)│  │(IAM) │
-                          └─────┘  └─────┘  └─────┘  └──────┘
-                          Scoped to bucket  Scoped    Scoped to
-                          + prefix          to DB     application
-```
-
 ### Key Components
 
 | Component | Purpose | Details |
@@ -69,10 +37,9 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
 | **AgentCore Gateway** | MCP tool routing | Routes MCP tool calls to individual Lambda functions. 6 registered targets for code generation, execution, schema fetching, and result retrieval. |
 | **Spark Orchestrator Agent** | End-to-end workflow | Pure orchestrator: coordinates code generation, validation, execution, and result fetching via MCP tool Lambdas. Keeps only decision logic locally. |
 | **MCP Tool Lambdas** | Modular tool execution | 6 independent Lambda functions: `generate-spark-code`, `execute-spark-on-lambda`, `execute-spark-on-emr`, `get-glue-table-schema`, `get-postgres-table-schema`, `fetch-spark-results`. Each has its own timeout, memory, and IAM permissions. |
-| **Code Generation Tool** | PySpark generation | Generates or refines PySpark based on user request and schema metadata. Runs as a separate AgentCore runtime invoked via MCP tool Lambda. |
-| **Spark-code-interpreter Tool** | Code validation | Interprets generated code, iteratively fixes errors. Cedar policies block destructive operations. |
-| **Result Generation Tool** | User-friendly output | Aggregates Spark results into tables, charts, and natural-language summaries. |
-| **User Interface (React + FastAPI)** | Frontend & API | React frontend and FastAPI backend that collect queries, validate JWT, invoke AgentCore, and render results. |
+| **Code Generation Agent** | PySpark generation | Generates PySpark code based on user request, schema metadata, and data source context. Runs as `spark_code_generator` on AgentCore, invoked via MCP tool Lambda. |
+| **Spark on Lambda (SoAL)** | Code execution | Executes PySpark code in a Docker container on Lambda with Hadoop-AWS JARs for S3A support. Used for validation and small datasets. |
+| **User Interface (React + FastAPI)** | Frontend & API | React frontend (Cloudscape) with code editor, CSV upload, Glue/PostgreSQL table selection, and real-time progress tracking. FastAPI backend calls the Supervisor Agent. |
 | **CloudTrail** | Audit trail | Captures all API calls across AgentCore, Bedrock, Lambda, EMR, S3, and Secrets Manager. Insights detect anomalies. |
 | **EventBridge** | Real-time alerts | Rules trigger on agent failures, EMR job failures, Lambda throttling, and unauthorized access. Routes to SNS for ops notifications. |
 | **AWS Services** | Infrastructure | S3, EMR Serverless, Lambda, CloudWatch, VPC for storage, compute, and network isolation. |
@@ -90,6 +57,8 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
   - CSV upload to S3
   - Code editor with syntax highlighting (Monaco)
   - Tabular result visualization
+  - Real-time progress tracking (S3-based, polls every 3s during execution)
+  - Session history
 - **Security & governance:**
   - Inbound authentication via Amazon Cognito JWT with custom OAuth scopes (`spark-api/spark.execute`)
   - Cedar authorization policies on AgentCore -- session scoping, destructive-operation denial, S3 tag checks, validated-code gating for EMR
@@ -236,12 +205,36 @@ cd frontend && npm install && npm run dev
 
 ### 4. Test
 
-```bash
-# Via test script
-./scripts/test-calculation.sh "what is 7*10"
+#### Upload test data to S3
 
-# Or via the UI at http://localhost:3000
+```bash
+aws s3 cp test-data/sample_sales.csv s3://spark-data-${ACCOUNT_ID}-${REGION}/test-input/sample_sales.csv
+aws s3 cp test-data/employee_performance.csv s3://spark-data-${ACCOUNT_ID}-${REGION}/test-input/employee_performance.csv
 ```
+
+#### Test via CLI
+
+```bash
+./scripts/test-calculation.sh "what is 7*10"
+```
+
+#### Test via the UI
+
+1. Open http://localhost:3000
+2. Upload a CSV using the **Upload CSV** button, or reference one already in S3
+3. Enter a prompt, for example:
+   - `Load the CSV from s3://spark-data-{account}-us-east-1/test-input/sample_sales.csv and show total sales by category`
+   - `Load the CSV from s3://spark-data-{account}-us-east-1/test-input/employee_performance.csv and show average salary by department`
+   - `What is 7 * 10`
+4. Click **Generate & Execute** and watch the real-time progress indicator
+5. Results appear in the **Execution Results** tab
+
+#### Test data files
+
+| File | Rows | Scenario | Good queries |
+|------|------|----------|-------------|
+| `test-data/sample_sales.csv` | 30 | Sales orders across regions and categories | "Total sales by region", "Top 5 products by revenue" |
+| `test-data/employee_performance.csv` | 500 | Employee performance across departments | "Average salary by department", "Count by performance rating", "Top 10 by bonus" |
 
 ---
 
@@ -250,26 +243,36 @@ cd frontend && npm install && npm run dev
 ```
 .
 ├── frontend/               # React + Cloudscape UI
+│   └── src/components/     # CodeEditor, ExecutionResults, GlueTableSelector, etc.
 ├── backend/                # FastAPI backend
+│   ├── main.py             # API endpoints (/generate, /execute, /upload-csv, etc.)
+│   └── config.py           # Config loader (reads config/deployment-config.json)
 ├── agent-code/             # Bedrock AgentCore agents
 │   ├── spark-supervisor-agent/   # Orchestrator (pure logic + MCP tool wrappers)
-│   └── code-generation-agent/
+│   └── code-generation-agent/    # PySpark code generator (spark_code_generator)
 ├── mcp-tools/              # MCP tool Lambdas (one per tool)
 │   ├── generate-spark-code/
 │   ├── execute-spark-on-lambda/
 │   ├── execute-spark-on-emr/
 │   ├── get-glue-table-schema/
 │   ├── get-postgres-table-schema/
-│   └── fetch-spark-results/
+│   ├── fetch-spark-results/
+│   └── progress.py         # Shared S3-based progress tracking
 ├── agent-wrapper/          # Wrapper Lambda code
 ├── cloudformation/         # Infrastructure templates
 ├── Docker/                 # Spark Lambda Docker image
 ├── scripts/                # Deployment & test scripts
+│   ├── deploy-all.sh       # Full deployment (agents + Docker + CloudFormation)
+│   ├── deploy-mcp-tools.sh # Deploy MCP tool Lambdas
+│   └── register-gateway-targets.py  # Register MCP tools on Gateway
 ├── config/                 # Configuration files
+│   └── deployment-config.json  # Agent ARNs, S3 bucket (auto-populated by deploy)
+├── test-data/              # Test CSV files
+│   ├── sample_sales.csv    # 30 rows - sales data
+│   └── employee_performance.csv  # 500 rows - HR data
 ├── images/                 # Architecture diagrams
-├── start-ui.sh             # Launch both frontend + backend
-├── README.md               # This file
-└── DEPLOYMENT_GUIDE.md     # Detailed deployment instructions
+├── start-ui.sh             # Launch frontend + backend
+└── README.md               # This file
 ```
 
 ---
@@ -671,9 +674,17 @@ All data in transit uses TLS. Enable S3 default encryption and EMRFS encryption 
 
 ### Lambda Timeout
 ```bash
-aws logs tail /aws/lambda/sparkOnLambda-spark-code-interpreter --follow
+aws logs tail /aws/lambda/dev-spark-on-lambda --follow --region us-east-1
 ```
 Increase timeout in Settings UI or `backend/settings.json`.
+
+### MCP Tool Lambda Errors
+```bash
+# Check individual tool Lambda logs
+aws logs tail /aws/lambda/dev-spark-tool-generate-spark-code --since 5m --region us-east-1
+aws logs tail /aws/lambda/dev-spark-tool-execute-spark-on-lambda --since 5m --region us-east-1
+aws logs tail /aws/lambda/dev-spark-tool-fetch-spark-results --since 5m --region us-east-1
+```
 
 ### EMR Serverless Job Failures
 ```bash
@@ -703,7 +714,7 @@ The MCP gateway may time out at ~30s while the Lambda continues. Check S3 for re
 Or manually:
 
 ```bash
-aws cloudformation delete-stack --stack-name spark-code-interpreter --region us-east-1
+aws cloudformation delete-stack --stack-name dev-spark-complete-stack --region us-east-1
 ```
 
 ---
@@ -717,4 +728,4 @@ aws cloudformation delete-stack --stack-name spark-code-interpreter --region us-
 
 ---
 
-**Version**: 3.0.0 | **Model**: Claude Sonnet 4.5 | **UI**: React + FastAPI
+**Version**: 4.0.0 | **Model**: Claude Sonnet 4.5 | **UI**: React + FastAPI + Cloudscape

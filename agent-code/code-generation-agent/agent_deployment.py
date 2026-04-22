@@ -9,7 +9,7 @@ boto_session = Session()
 region = boto_session.region_name
 
 agentcore_runtime = Runtime()
-agent_name = "code_generation_agent"
+agent_name = "spark_code_generator"
 response = agentcore_runtime.configure(
     entrypoint="agents.py",
     auto_create_execution_role=True,
