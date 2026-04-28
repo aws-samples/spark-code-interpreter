@@ -38,4 +38,4 @@ COPY . .
 
 # Use the full module path
 
-CMD ["opentelemetry-instrument", "python", "-m", "spark_supervisor_agent"]
+CMD ["opentelemetry-instrument", "python", "spark_supervisor_agent.py"]

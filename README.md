@@ -9,11 +9,10 @@ Two execution backends work together:
 
 Natural language is the interface. No ETL frameworks, no deployment pipelines -- just ask a question and get results.
 
-<img src="images/image-v1.png" width="1000"/>
-
 ## Architecture Overview
 
-<img src="images/Architecture.jpeg" width="1000"/>
+<img src="images/architecture-mcp.png" width="1000"/>
+
 
 ### Solution Flow
 
@@ -66,10 +65,11 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
 |-----------|---------|---------|
 | **Amazon Cognito** | Inbound authentication | User pool with JWT tokens and `spark-api/spark.execute` OAuth scope. Rejects unauthenticated requests at the gateway. |
 | **Cedar Policies** | Agent authorization | Declarative rules evaluated before tool execution: session scoping, destructive-operation denial, S3 tag checks, validated-code gating. |
-| **AgentCore Runtime** | Agent + tool hosting | Runs the Spark orchestrator agent and its tools inside AgentCore with scoped IAM execution roles. |
-| **Spark Orchestrator Agent** | End-to-end workflow | Orchestrates: read data, generate PySpark, execute via Spark-code-interpreter, format results. Authenticates to downstream services via IAM roles. |
-| **Data Read Tool** | Dataset access | Reads from S3 / Glue catalog (extensible to Snowflake, Databricks via MCP). IAM-scoped to tagged resources. |
-| **Code Generation Tool** | PySpark generation | Generates or refines PySpark based on user request and schema metadata. |
+| **AgentCore Runtime** | Agent hosting | Runs the Spark orchestrator agent with local logic tools. External operations are delegated to MCP tool Lambdas. |
+| **AgentCore Gateway** | MCP tool routing | Routes MCP tool calls to individual Lambda functions. 6 registered targets for code generation, execution, schema fetching, and result retrieval. |
+| **Spark Orchestrator Agent** | End-to-end workflow | Pure orchestrator: coordinates code generation, validation, execution, and result fetching via MCP tool Lambdas. Keeps only decision logic locally. |
+| **MCP Tool Lambdas** | Modular tool execution | 6 independent Lambda functions: `generate-spark-code`, `execute-spark-on-lambda`, `execute-spark-on-emr`, `get-glue-table-schema`, `get-postgres-table-schema`, `fetch-spark-results`. Each has its own timeout, memory, and IAM permissions. |
+| **Code Generation Tool** | PySpark generation | Generates or refines PySpark based on user request and schema metadata. Runs as a separate AgentCore runtime invoked via MCP tool Lambda. |
 | **Spark-code-interpreter Tool** | Code validation | Interprets generated code, iteratively fixes errors. Cedar policies block destructive operations. |
 | **Result Generation Tool** | User-friendly output | Aggregates Spark results into tables, charts, and natural-language summaries. |
 | **User Interface (React + FastAPI)** | Frontend & API | React frontend and FastAPI backend that collect queries, validate JWT, invoke AgentCore, and render results. |
@@ -119,6 +119,47 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
 - Production analytics with SLA requirements
 
 This solution uses SoAL for **validation** and EMR Serverless for **production execution**, so code never needs to be rewritten for scale.
+
+---
+
+## Modular MCP Tool Architecture
+
+The Spark Supervisor Agent follows a modular architecture where external operations are delegated to individual Lambda functions exposed as MCP tools on the AgentCore Gateway.
+
+### Tool Split
+
+**MCP Tool Lambdas (external operations, one Lambda each):**
+
+| Tool | Lambda | Timeout | Purpose |
+|------|--------|---------|---------|
+| `generate_spark_code` | `dev-spark-tool-generate-spark-code` | 300s | Calls Code Gen Agent to produce PySpark |
+| `execute_spark_on_lambda` | `dev-spark-tool-execute-spark-on-lambda` | 320s | Runs code on Spark-on-Lambda |
+| `execute_spark_on_emr` | `dev-spark-tool-execute-spark-on-emr` | 900s | Submits jobs to EMR Serverless |
+| `get_glue_table_schema` | `dev-spark-tool-get-glue-table-schema` | 30s | Fetches Glue table metadata |
+| `get_postgres_table_schema` | `dev-spark-tool-get-postgres-table-schema` | 30s | Fetches PostgreSQL table schema |
+| `fetch_spark_results` | `dev-spark-tool-fetch-spark-results` | 60s | Reads results from S3 |
+
+**Local tools (pure logic, kept in supervisor agent):**
+- `select_execution_platform` — Chooses Lambda vs EMR based on data size
+- `validate_spark_code` — Checks code for required imports and output file writing
+- `ensure_output_file_writing` — Injects output file logic into generated code
+- `extract_python_code` — Extracts code from markdown blocks
+- `extract_execution_logs` — Parses execution results from Lambda/EMR
+
+### Call Flow
+
+```
+Wrapper Lambda
+  └── AgentCore Supervisor Agent (orchestrator)
+        ├── [local] select_execution_platform
+        ├── [local] validate_spark_code
+        ├── [MCP Lambda] generate_spark_code → Code Gen Agent
+        ├── [MCP Lambda] execute_spark_on_lambda → Spark Lambda
+        ├── [local] extract_execution_logs
+        └── [MCP Lambda] fetch_spark_results → S3
+```
+
+Config is passed as parameters in each MCP tool call (not environment variables), making the tools stateless and reusable.
 
 ---
 
@@ -211,8 +252,15 @@ cd frontend && npm install && npm run dev
 ├── frontend/               # React + Cloudscape UI
 ├── backend/                # FastAPI backend
 ├── agent-code/             # Bedrock AgentCore agents
-│   ├── spark-supervisor-agent/
+│   ├── spark-supervisor-agent/   # Orchestrator (pure logic + MCP tool wrappers)
 │   └── code-generation-agent/
+├── mcp-tools/              # MCP tool Lambdas (one per tool)
+│   ├── generate-spark-code/
+│   ├── execute-spark-on-lambda/
+│   ├── execute-spark-on-emr/
+│   ├── get-glue-table-schema/
+│   ├── get-postgres-table-schema/
+│   └── fetch-spark-results/
 ├── agent-wrapper/          # Wrapper Lambda code
 ├── cloudformation/         # Infrastructure templates
 ├── Docker/                 # Spark Lambda Docker image
@@ -380,12 +428,13 @@ AgentCore agents authenticate to downstream AWS services using **IAM execution r
 
 | Agent → Service | Auth Method |
 |----------------|-------------|
-| Supervisor Agent → Code Gen Agent | IAM role (bedrock-agentcore:InvokeAgentRuntime) |
-| Supervisor Agent → Spark Lambda | IAM role (lambda:InvokeFunction) |
-| Supervisor Agent → EMR Serverless | IAM role (emr-serverless:StartJobRun) |
-| Supervisor Agent → S3 | IAM role (s3:GetObject, s3:PutObject) |
-| Supervisor Agent → Glue Catalog | IAM role (glue:GetTable, glue:GetDatabase) |
-| Supervisor Agent → Secrets Manager | IAM role (secretsmanager:GetSecretValue) for PostgreSQL credentials |
+| Supervisor Agent → MCP Tool Lambdas | IAM role (lambda:InvokeFunction on `dev-spark-tool-*`) |
+| MCP Tool → Code Gen Agent | IAM role (bedrock-agentcore:InvokeAgentRuntime) |
+| MCP Tool → Spark Lambda | IAM role (lambda:InvokeFunction) |
+| MCP Tool → EMR Serverless | IAM role (emr-serverless:StartJobRun) |
+| MCP Tool → S3 | IAM role (s3:GetObject, s3:PutObject) |
+| MCP Tool → Glue Catalog | IAM role (glue:GetTable, glue:GetDatabase) |
+| MCP Tool → Secrets Manager | IAM role (secretsmanager:GetSecretValue) for PostgreSQL credentials |
 | Supervisor Agent → Bedrock Models | IAM role (bedrock:InvokeModel) |
 
 Each agent runtime has its own IAM role. The Spark Supervisor Agent role cannot access resources outside its designated S3 bucket, Glue databases, or specific Lambda functions.

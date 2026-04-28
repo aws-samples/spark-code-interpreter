@@ -1,0 +1,49 @@
+# Documentation and Archive directories
+docs/
+archive/
+
+# Test/verification files
+sample_sales_data.csv
+verify-fixes.sh
+verify_output_fix.py
+
+# Log files
+*.log
+deployment*.log
+
+# Temporary test files
+*test*.json
+test_*.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# AWS
+.aws/
+
+# Temporary files
+/tmp/
+*.tmp
+*.bak
+*.backup

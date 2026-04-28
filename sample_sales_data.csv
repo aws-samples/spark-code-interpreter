@@ -1,0 +1,21 @@
+product_id,product_name,category,price,quantity,region,sale_date
+1,Laptop,Electronics,1200,5,North,2024-01-15
+2,Mouse,Electronics,25,50,South,2024-01-16
+3,Keyboard,Electronics,75,30,East,2024-01-17
+4,Monitor,Electronics,300,15,West,2024-01-18
+5,Desk Chair,Furniture,250,20,North,2024-01-19
+6,Standing Desk,Furniture,500,10,South,2024-01-20
+7,Bookshelf,Furniture,150,25,East,2024-01-21
+8,Coffee Maker,Appliances,80,40,West,2024-01-22
+9,Microwave,Appliances,120,35,North,2024-01-23
+10,Blender,Appliances,60,45,South,2024-01-24
+11,Laptop Pro,Electronics,1800,8,East,2024-01-25
+12,Wireless Mouse,Electronics,35,60,West,2024-01-26
+13,Gaming Keyboard,Electronics,150,25,North,2024-01-27
+14,Office Chair,Furniture,300,18,South,2024-01-28
+15,File Cabinet,Furniture,200,12,East,2024-01-29
+16,Toaster,Appliances,40,55,West,2024-01-30
+17,Air Fryer,Appliances,100,30,North,2024-01-31
+18,Tablet,Electronics,600,20,South,2024-02-01
+19,Headphones,Electronics,150,40,East,2024-02-02
+20,Webcam,Electronics,80,35,West,2024-02-03

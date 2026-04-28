@@ -19,4 +19,4 @@ RUN uv pip install --system -r requirements.txt
 COPY . .
 
 # Set the entrypoint
-CMD ["python", "-m", "bedrock_agentcore.runtime"]
+CMD ["python", "agents.py"]

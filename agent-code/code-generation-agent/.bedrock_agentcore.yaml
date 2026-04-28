@@ -1,19 +1,21 @@
-default_agent: ray_code_interpreter
+default_agent: code_generation_agent
 agents:
-  ray_code_interpreter:
-    name: ray_code_interpreter
-    entrypoint: /Users/kamokash/Library/CloudStorage/OneDrive-amazon.com/DJA/codebase-karthik-github/cloudformation-template/us-east-1-stable-jwt/agent-code/code-generation-agent/agents.py
+  code_generation_agent:
+    name: code_generation_agent
+    language: python
+    node_version: null
+    entrypoint: /Users/vivekml/Documents/PROJECTS/OpenSource/spark-code-interpreter/agent-code/code-generation-agent/agents.py
     deployment_type: container
     runtime_type: null
     platform: linux/arm64
-    container_runtime: docker
+    container_runtime: none
     source_path: null
     aws:
-      execution_role: arn:aws:iam::817323390093:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-a7ee536645
+      execution_role: arn:aws:iam::914787431788:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-172fa0f4df
       execution_role_auto_create: false
-      account: '817323390093'
+      account: '914787431788'
       region: us-east-1
-      ecr_repository: 817323390093.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-ray_code_interpreter
+      ecr_repository: 914787431788.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-code_generation_agent
       ecr_auto_create: false
       s3_path: null
       s3_auto_create: false
@@ -28,13 +30,13 @@ agents:
         idle_runtime_session_timeout: null
         max_lifetime: null
     bedrock_agentcore:
-      agent_id: ray_code_interpreter-FKoWFR2k9A
-      agent_arn: arn:aws:bedrock-agentcore:us-east-1:817323390093:runtime/ray_code_interpreter-FKoWFR2k9A
+      agent_id: ray_code_interpreter-5OXxb1FQfD
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:914787431788:runtime/ray_code_interpreter-5OXxb1FQfD
       agent_session_id: null
     codebuild:
-      project_name: bedrock-agentcore-ray_code_interpreter-builder
-      execution_role: arn:aws:iam::817323390093:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-a7ee536645
-      source_bucket: bedrock-agentcore-codebuild-sources-817323390093-us-east-1
+      project_name: bedrock-agentcore-code_generation_agent-builder
+      execution_role: arn:aws:iam::914787431788:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-172fa0f4df
+      source_bucket: bedrock-agentcore-codebuild-sources-914787431788-us-east-1
     memory:
       mode: NO_MEMORY
       memory_id: null

@@ -1,4 +1,9 @@
-"""Spark Supervisor Agent - Orchestrates code generation, validation, and execution"""
+"""Spark Supervisor Agent - Orchestrates code generation, validation, and execution
+
+Tools are split into:
+- MCP tools: External operations delegated to individual Lambda functions
+- Local tools: Pure logic kept in this file (no external calls)
+"""
 
 import os
 import json
@@ -16,6 +21,29 @@ AWS_REGION = session.region_name or 'us-east-1'
 
 # Global session tracking
 CURRENT_SESSION_ID = None
+
+# Environment prefix for MCP tool Lambda names
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'dev')
+
+
+def _invoke_mcp_tool(function_name: str, payload: dict) -> dict:
+    """Invoke an MCP tool Lambda function and return parsed result."""
+    from botocore.config import Config
+
+    lambda_client = boto3.client(
+        'lambda',
+        region_name=AWS_REGION,
+        config=Config(read_timeout=900, connect_timeout=10),
+    )
+    response = lambda_client.invoke(
+        FunctionName=function_name,
+        InvocationType='RequestResponse',
+        Payload=json.dumps(payload),
+    )
+    result = json.loads(response['Payload'].read())
+    if 'body' in result:
+        return json.loads(result['body']) if isinstance(result['body'], str) else result['body']
+    return result
 
 def load_spark_config():
     """Load Spark configuration - will be overridden by runtime config"""
@@ -65,299 +93,23 @@ def extract_python_code(text: str) -> str:
 
 @tool
 def call_code_generation_agent(prompt: str, session_id: str, s3_input_path: str = None, selected_tables: list = None, selected_postgres_tables: list = None, s3_output_path: str = None) -> str:
-    """Call Code Generation Agent to generate Spark code"""
-    import boto3
-    
-    agentcore_client = boto3.client(
-        'bedrock-agentcore',
-        region_name=AWS_REGION,
-        config=boto3.session.Config(read_timeout=300, connect_timeout=60)
-    )
-    
-    # Spark-specific system prompt with intelligent column matching
-    spark_system_prompt = """You are a Spark code generation specialist with intelligent column matching capabilities.
-
-Generate PySpark code for data analysis with automatic column name resolution.
-
-CRITICAL - DO NOT SYNTHESIZE DATA:
-- NEVER create sample data, synthetic data, or fake data in the code
-- NEVER use createDataFrame with hardcoded values
-- ALWAYS read from the actual data sources provided in the context
-- If data sources are provided (S3, Glue, PostgreSQL), you MUST read from them
-- Only generate sample data if the user explicitly requests it AND no data sources are provided
-- ABSOLUTELY FORBIDDEN: Do NOT create fallback synthetic data "in case connection fails"
-- ABSOLUTELY FORBIDDEN: Do NOT create sample data as a backup or alternative
-- If PostgreSQL/Glue/S3 is in context, that is the ONLY data source - no alternatives allowed
-
-INTELLIGENT COLUMN MATCHING:
-- When user mentions column names that don't exactly match, find the closest matching column
-- Use fuzzy matching, partial matching, and semantic understanding
-- For example: "sales" could match "total_sales", "sales_amount", "monthly_sales"
-- "date" could match "order_date", "created_at", "timestamp"
-- "price" could match "unit_price", "total_price", "cost"
-- NEVER error on column names - always find the best match and use it
-
-DATA SOURCES:
-- S3 files: Use spark.read.option("header", "true").csv(s3_path)
-- Glue tables: Use spark.table("database.table") with Glue catalog configuration
-- PostgreSQL tables: Use JDBC with credentials based on auth_method from context
-
-CRITICAL - SPARK COLUMN OPERATIONS:
-- NEVER use Python lists directly in Spark operations
-- For filtering multiple values: Use col("column").isin([val1, val2, val3]) NOT col("column") == [val1, val2, val3]
-- For array literals: Use array([lit(val1), lit(val2), lit(val3)]) NOT [val1, val2, val3]
-- For column selection: Use df.select("col1", "col2") NOT df.select(["col1", "col2"])
-- Always import required functions: from pyspark.sql.functions import col, lit, array, when, etc.
-
-CRITICAL - GLUE CATALOG CONFIGURATION:
-When the prompt mentions "Glue tables:" or contains table names, you MUST include these exact configurations:
-
-spark = SparkSession.builder \\
-    .appName("GlueQuery") \\
-    .config("spark.sql.warehouse.dir", "ACTUAL_S3_BUCKET_FROM_CONTEXT") \\
-    .config("spark.hadoop.hive.metastore.warehouse.dir", "ACTUAL_S3_BUCKET_FROM_CONTEXT") \\
-    .config("hive.metastore.client.factory.class", 
-            "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory") \\
-    .enableHiveSupport() \\
-    .getOrCreate()
-
-Replace ACTUAL_S3_BUCKET_FROM_CONTEXT with the S3 bucket provided in the prompt context.
-Example: If context says "S3 bucket for warehouse: s3://my-bucket/warehouse/", use that exact path.
-
-THEN read from Glue table using: df = spark.table("database.table")
-
-FORBIDDEN FOR GLUE TABLES:
-- DO NOT use spark.read.csv() to read from table location directly
-- DO NOT read from S3 paths when Glue tables are provided
-- MUST use spark.table("database.table") to read from Glue catalog
-- MUST include ALL 4 Glue configurations above (warehouse.dir, hadoop.hive.metastore.warehouse.dir, factory.class, enableHiveSupport)
-
-WITHOUT these configurations, the code will fail with Derby metastore errors.
-
-POSTGRESQL DATA SOURCES - MANDATORY INSTRUCTIONS:
-When PostgreSQL tables are in context, you MUST use JDBC connection with exact values from context.
-
-CRITICAL: DO NOT use environment variables, hardcoded values, or placeholders. Use ONLY the actual values provided in the context.
-
-1. SPARK CONFIGURATION - Use exact JDBC driver path from context:
-   spark = SparkSession.builder \\
-       .appName("PostgreSQLQuery") \\
-       .config("spark.jars", "ACTUAL_JDBC_DRIVER_PATH_FROM_CONTEXT") \\
-       .getOrCreate()
-   
-   Example: If context shows "JDBC Driver: s3://bucket/jars/postgresql-42.7.8.jar"
-   Then use: .config("spark.jars", "s3://bucket/jars/postgresql-42.7.8.jar")
-
-2. GET CREDENTIALS - Use exact Secret ARN from context (NO environment variables):
-
-   WRONG - NEVER DO THIS:
-   username = os.environ.get('DB_USERNAME')  # FORBIDDEN
-   password = os.environ.get('DB_PASSWORD')  # FORBIDDEN
-   secret_arn = os.getenv('SECRET_ARN')      # FORBIDDEN
-   
-   CORRECT - ALWAYS DO THIS:
-
-   A. If auth_method is 'secrets_manager':
-      import boto3, json
-      secrets_client = boto3.client('secretsmanager', region_name='us-east-1')
-      secret = secrets_client.get_secret_value(SecretId='ACTUAL_SECRET_ARN_FROM_CONTEXT')
-      creds = json.loads(secret['SecretString'])
-      username = creds['username']
-      password = creds['password']
-      
-      Example: If context shows "Secret ARN: arn:aws:secretsmanager:us-east-1:123:secret:my-secret-abc123"
-      Then use: SecretId='arn:aws:secretsmanager:us-east-1:123:secret:my-secret-abc123'
-   
-   B. If auth_method is 'iam':
-      import boto3
-      rds_client = boto3.client('rds', region_name='us-east-1')
-      password = rds_client.generate_db_auth_token(
-          DBHostname='ACTUAL_HOST_FROM_CONTEXT',
-          Port=ACTUAL_PORT_FROM_CONTEXT,
-          DBUsername='ACTUAL_USERNAME_FROM_CONTEXT',
-          Region='us-east-1'
-      )
-      username = 'ACTUAL_USERNAME_FROM_CONTEXT'
-      
-      Example: If context shows "Host: mydb.rds.amazonaws.com" and "Port: 5432"
-      Then use: DBHostname='mydb.rds.amazonaws.com', Port=5432
-   
-   C. If auth_method is 'user_password':
-      import boto3, json
-      secrets_client = boto3.client('secretsmanager', region_name='us-east-1')
-      secret = secrets_client.get_secret_value(SecretId='ACTUAL_SECRET_ARN_FROM_CONTEXT')
-      creds = json.loads(secret['SecretString'])
-      username = creds['username']
-      password = creds['password']
-
-3. READ FROM POSTGRESQL - Use exact JDBC URL from context:
-   df = spark.read.format("jdbc") \\
-       .option("url", "ACTUAL_JDBC_URL_FROM_CONTEXT") \\
-       .option("dbtable", "schema.table") \\
-       .option("user", username) \\
-       .option("password", password) \\
-       .option("driver", "org.postgresql.Driver") \\
-       .load()
-   
-   Example: If context shows "JDBC URL: jdbc:postgresql://host:5432/dbname"
-   Then use: .option("url", "jdbc:postgresql://host:5432/dbname")
-
-4. PERFORMANCE OPTIMIZATION:
-   - Use predicates for pushdown: .option("predicates", ["id > 1000"])
-   - Partition reads: .option("partitionColumn", "id")
-   - Fetch size: .option("fetchsize", "1000")
-
-5. JOINING POSTGRESQL WITH OTHER SOURCES:
-   - Read PostgreSQL table → Spark DataFrame
-   - Read Glue/S3 → Spark DataFrame
-   - Join in Spark: df1.join(df2, condition)
-
-FORBIDDEN FOR POSTGRESQL:
-- DO NOT use os.environ or os.getenv for any PostgreSQL values
-- DO NOT use placeholder text like "YOUR_SECRET_ARN" or "REPLACE_WITH_ARN"
-- DO NOT hardcode generic values - use the EXACT values from context
-- The Secret ARN, JDBC URL, JDBC Driver path MUST match what's in the context exactly
-- ALWAYS include JDBC driver in spark.jars configuration
-- Use schema.table format for dbtable option
-- Include error handling for connection failures
-- Write results to S3 output path (never back to PostgreSQL)
-
-REQUIREMENTS:
-- Create SparkSession with appropriate config
-- For Glue tables: Include ALL 4 configurations above (warehouse.dir, hadoop.hive.metastore.warehouse.dir, factory.class, enableHiveSupport)
-- For PostgreSQL: Include JDBC driver in spark.jars and fetch credentials based on auth_method from context
-- CRITICAL: Read data from ALL provided sources (S3, Glue, PostgreSQL) - NEVER synthesize or create fake data
-- CRITICAL: If PostgreSQL tables are listed in context, you MUST read from them using JDBC - do NOT create sample data
-- CRITICAL: If Glue tables are listed in context, you MUST read from them using spark.table() - do NOT create sample data
-- CRITICAL: If S3 path is listed in context, you MUST read from it using spark.read.csv() - do NOT create sample data
-- Automatically detect and use closest matching columns from the actual data
-- Perform requested analysis using matched columns
-- Write results to S3 path specified in "Write results to:" context (if provided) using .write.mode("overwrite").csv()
-- Include error handling
-- Show schema and sample data from actual sources
-- Import all required Spark functions: from pyspark.sql.functions import col, lit, array, when, sum, count, etc.
-
-FORBIDDEN:
-- DO NOT use spark.createDataFrame() with hardcoded data when data sources are provided
-- DO NOT generate synthetic data when actual data sources are available
-- DO NOT create sample rows or fake data
-- ABSOLUTELY FORBIDDEN: DO NOT use os.environ.get(), os.getenv(), or any environment variables for credentials
-- ABSOLUTELY FORBIDDEN: DO NOT use placeholders like "YOUR_SECRET_ARN" or "REPLACE_WITH_VALUE"
-
-COLUMN MATCHING EXAMPLES:
-- User says "analyze sales by month" : find columns like "sales_amount", "total_sales" + "order_date", "month", "created_at"
-- User says "group by category" : find columns like "product_category", "category_name", "type"
-- User says "filter by price > 100" : find columns like "unit_price", "total_price", "amount"
-
-COMMON SPARK PATTERNS:
-- Filtering: df.filter(col("column_name") > value) or df.filter(col("column_name").isin([val1, val2]))
-- Grouping: df.groupBy("column_name").agg(sum("other_column").alias("total"))
-- Selecting: df.select("col1", "col2", col("col3").alias("new_name"))
-- Creating arrays: df.withColumn("new_col", array(lit(val1), lit(val2)))
-
-Return only executable Python code with intelligent column matching."""
-
-    # Build context
-    data_context = ""
-    
-    # S3 CSV files
-    if s3_input_path:
-        data_context += f"\nS3 CSV file: {s3_input_path}"
-    
-    # Glue tables
-    if selected_tables:
-        # Handle both string list and dict list formats
-        if selected_tables and isinstance(selected_tables[0], dict):
-            table_names = [f"{t['database']}.{t['table']}" for t in selected_tables]
-            data_context += f"\nGlue tables: {', '.join(table_names)}"
-            # Use location from first table for warehouse config
-            if selected_tables[0].get('location'):
-                data_context += f"\nS3 bucket for warehouse: {selected_tables[0]['location']}"
-        else:
-            data_context += f"\nGlue tables: {', '.join(selected_tables)}"
-            # Extract S3 bucket for warehouse configuration
-            if s3_output_path and s3_output_path.startswith('s3://'):
-                bucket = s3_output_path.split('/')[2]
-                data_context += f"\nS3 bucket for warehouse: s3://{bucket}/warehouse/"
-    
-    # PostgreSQL table handling
-    if selected_postgres_tables:
-        postgres_context = "\n\nPostgreSQL tables:\n"
-        for pg_table in selected_postgres_tables:
-            postgres_context += f"- Connection: {pg_table['connection_name']}\n"
-            postgres_context += f"  {pg_table['database']}.{pg_table['schema']}.{pg_table['table']}\n"
-            postgres_context += f"  JDBC URL: {pg_table['jdbc_url']}\n"
-            postgres_context += f"  Auth Method: {pg_table.get('auth_method', 'secrets_manager')}\n"
-            postgres_context += f"  Secret ARN: {pg_table['secret_arn']}\n"
-            
-            # Add host/port/username for IAM auth
-            if pg_table.get('auth_method') == 'iam':
-                postgres_context += f"  Host: {pg_table.get('host', '')}\n"
-                postgres_context += f"  Port: {pg_table.get('port', 5432)}\n"
-                # Username would be in the secret for IAM auth
-            
-            # Add columns if available (from fetch_postgres_table_schema or frontend)
-            if 'columns' in pg_table and pg_table['columns']:
-                columns_str = ', '.join([f"{c['name']} ({c['type']})" for c in pg_table['columns'][:5]])
-                postgres_context += f"  Columns: {columns_str}\n"
-        
-        data_context += postgres_context
-        
-        # Add JDBC driver path (backend passes it at top level)
-        config = get_config()
-        jdbc_driver = config.get('jdbc_driver_path')
-        if jdbc_driver:
-            data_context += f"\nJDBC Driver: {jdbc_driver}\n"
-    
-    # Add output path to context
-    if s3_output_path:
-        data_context += f"\nWrite results to: {s3_output_path}"
-    
-    full_prompt = f"{prompt}{data_context}"
-    
-    # Get model ID from runtime config
+    """Call Code Generation Agent to generate Spark code via MCP tool Lambda"""
     config = get_config()
-    model_id = config.get('model_id') or config.get('bedrock_model')
-    
-    if not model_id:
-        raise ValueError("❌ ERROR: No model_id found in runtime configuration. Please ensure model_id is set in the backend context.")
-    
-    print(f"🔍 DEBUG - Using model_id: {model_id}")
-    print(f"🔍 DEBUG - Config bedrock_model: {config.get('bedrock_model')}")
-    
-    payload = {
-        "prompt": full_prompt,
-        "system_prompt": spark_system_prompt,
-        "session_id": session_id,
-        "model_id": model_id
-    }
-    
-    # Get code generation agent ARN from runtime config
-    config = get_config()
-    code_gen_agent_arn = config.get('code_gen_agent_arn')
-    
-    try:
-        response = agentcore_client.invoke_agent_runtime(
-            agentRuntimeArn=code_gen_agent_arn,
-            runtimeSessionId=session_id,
-            qualifier="DEFAULT",
-            payload=json.dumps(payload)
-        )
-        
-        # Read streaming response
-        if 'response' in response:
-            code = response['response'].read().decode('utf-8')
-            # Clean up code blocks
-            if code.startswith('```python'):
-                code = code[10:-3].strip()
-            elif code.startswith('```'):
-                code = code[3:-3].strip()
-            return code
-        else:
-            return "CODE_GEN_ERROR: No response from code generation agent"
-            
-    except Exception as e:
-        return f"CODE_GEN_ERROR: {str(e)}"
+    result = _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-generate-spark-code", {
+        'prompt': prompt,
+        'session_id': session_id,
+        's3_input_path': s3_input_path,
+        'selected_tables': selected_tables,
+        'selected_postgres_tables': selected_postgres_tables,
+        's3_output_path': s3_output_path,
+        'model_id': config.get('model_id') or config.get('bedrock_model'),
+        'code_gen_agent_arn': config.get('code_gen_agent_arn'),
+        'jdbc_driver_path': config.get('jdbc_driver_path'),
+        'region': config.get('region', AWS_REGION),
+    })
+    if result.get('status') == 'success':
+        return result.get('code', '')
+    return f"CODE_GEN_ERROR: {result.get('error', 'Unknown error')}"
 
 @tool
 def select_execution_platform(s3_input_path: str = None, file_size_mb: float = 0) -> str:
@@ -413,6 +165,13 @@ def validate_spark_code(spark_code: str, s3_input_path: str = None, selected_tab
     if 'SparkSession' not in spark_code:
         validation_errors.append("Code must create a SparkSession")
     
+    # CRITICAL: Output file validation
+    if '/tmp/output.json' not in spark_code:
+        validation_errors.append("Code must write results to /tmp/output.json (MANDATORY for Lambda execution)")
+    
+    if 'import json' not in spark_code and '/tmp/output.json' in spark_code:
+        validation_errors.append("Code must import json module to write output file")
+    
     # Glue-specific validation
     if is_glue:
         if not any(f'spark.table(' in spark_code for table in (selected_tables or [])):
@@ -428,8 +187,8 @@ def validate_spark_code(spark_code: str, s3_input_path: str = None, selected_tab
     
     # Output validation - allow display-only operations
     has_display = any(x in spark_code for x in ['.show(', '.printSchema(', 'print('])
-    if '.write' not in spark_code and not has_display:
-        validation_errors.append("Code should write results to S3 or display data")
+    if '.write' not in spark_code and not has_display and '/tmp/output.json' not in spark_code:
+        validation_errors.append("Code should write results to S3, display data, or write output file")
     
     return {
         'status': 'success' if not validation_errors else 'validation_failed',
@@ -439,176 +198,96 @@ def validate_spark_code(spark_code: str, s3_input_path: str = None, selected_tab
     }
 
 @tool
-def execute_spark_code_lambda(spark_code: str, s3_output_path: str) -> dict:
-    """Execute validated Spark code on AWS Lambda
+def ensure_output_file_writing(spark_code: str, s3_output_path: str = None) -> str:
+    """Ensure generated Spark code writes /tmp/output.json (Safety net)
+    
+    This is a fallback tool that injects output file writing if the code generation
+    agent forgot to include it. Ideally, the agent should generate correct code,
+    but this provides a safety net.
     
     Args:
-        spark_code: Validated Spark code
-        s3_output_path: S3 path for output
+        spark_code: Generated Spark code
+        s3_output_path: S3 output path (optional)
     
     Returns:
-        Execution result from Lambda
+        Modified code with output file writing guaranteed
     """
-    import boto3
-    from botocore.config import Config
-    config = get_config()
+    import re
     
-    # Note: Code is passed directly to Lambda, no need to save to S3 first
-    # The Lambda function will handle S3 writes for results
+    # Check if code already writes output.json
+    if '/tmp/output.json' in spark_code:
+        return spark_code  # Already has output writing
     
-    lambda_client = boto3.client(
-        'lambda',
-        region_name=config['bedrock_region'],
-        config=Config(read_timeout=320, connect_timeout=10)
-    )
+    print("⚠️ WARNING: Generated code missing /tmp/output.json - injecting safety net")
     
-    payload = {
-        'code': spark_code,
-        'bucket': config.get('s3_bucket', '').replace('s3://', '').split('/')[0],
-        'file_path': s3_output_path.replace(f"s3://{config.get('s3_bucket', '')}/", '') if s3_output_path else '',
-        'iterate': 0,
-        'config': ''
-    }
+    # Ensure json import exists
+    if 'import json' not in spark_code:
+        # Add after other imports
+        lines = spark_code.split('\n')
+        import_index = 0
+        for i, line in enumerate(lines):
+            if line.startswith('import ') or line.startswith('from '):
+                import_index = i + 1
+        lines.insert(import_index, 'import json')
+        spark_code = '\n'.join(lines)
     
-    response = lambda_client.invoke(
-        FunctionName=config['lambda_function'],
-        InvocationType='RequestResponse',
-        Payload=json.dumps(payload)
-    )
-    
-    result = json.loads(response['Payload'].read())
-    
-    # Parse the response body if it's a string
-    if 'body' in result:
-        body = json.loads(result['body']) if isinstance(result['body'], str) else result['body']
+    # Find where to inject output code (before spark.stop())
+    if 'spark.stop()' in spark_code:
+        # Inject before spark.stop()
+        output_code = '''
+# SAFETY NET: Write output to JSON file (required by Lambda handler)
+output = {
+    "status": "success",
+    "message": "Execution completed. Check logs for results."
+}
+with open('/tmp/output.json', 'w') as f:
+    json.dump(output, f)
+
+'''
+        spark_code = spark_code.replace('spark.stop()', output_code + 'spark.stop()')
     else:
-        body = result
+        # Append at end
+        output_code = '''
+# SAFETY NET: Write output to JSON file (required by Lambda handler)
+output = {
+    "status": "success",
+    "message": "Execution completed. Check logs for results."
+}
+with open('/tmp/output.json', 'w') as f:
+    json.dump(output, f)
+'''
+        spark_code += '\n' + output_code
     
-    # Extract actual S3 output path from Lambda response
-    actual_s3_output_path = body.get('s3_output_path', s3_output_path)
-    
-    lambda_status = 'success' if result.get('statusCode') == 200 else 'error'
-    
-    return {
-        'status': lambda_status,
-        'execution_platform': 'lambda',
-        's3_output_path': actual_s3_output_path,  # Use actual path from Lambda
-        'result': body,
-        'lambda_function': config['lambda_function']
-    }
+    return spark_code
+
+@tool
+def execute_spark_code_lambda(spark_code: str, s3_output_path: str) -> dict:
+    """Execute validated Spark code on AWS Lambda via MCP tool Lambda"""
+    config = get_config()
+    return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-execute-spark-on-lambda", {
+        'spark_code': spark_code,
+        's3_output_path': s3_output_path,
+        'lambda_function': config.get('lambda_function', ''),
+        's3_bucket': config.get('s3_bucket', ''),
+        'spark_config': config.get('spark_config', {}),
+        'region': config.get('bedrock_region', AWS_REGION),
+    })
 
 @tool
 def execute_spark_code_emr(spark_code: str, s3_output_path: str) -> dict:
-    """Execute validated Spark code on EMR Serverless
-    
-    Args:
-        spark_code: Validated Spark code
-        s3_output_path: S3 path for output
-    
-    Returns:
-        Execution result from EMR
-    """
-    import boto3
-    import time
+    """Execute validated Spark code on EMR Serverless via MCP tool Lambda"""
     config = get_config()
-    
-    # Save validated code to S3 for backend retrieval
-    global CURRENT_SESSION_ID
-    if CURRENT_SESSION_ID and config.get('s3_bucket'):
-        s3_client = boto3.client('s3', region_name=config['bedrock_region'])
-        code_key = f"{CURRENT_SESSION_ID}/{CURRENT_SESSION_ID}_code.py"
-        s3_client.put_object(
-            Bucket=config['s3_bucket'],
-            Key=code_key,
-            Body=spark_code.encode('utf-8')
-        )
-    
-    emr_client = boto3.client('emr-serverless', region_name=config['bedrock_region'])
-    s3_client = boto3.client('s3', region_name=config['bedrock_region'])
-    
-    # Use EMR application ID provided by backend (already selected based on data source)
-    # Backend passes emr_postgres_application_id for PostgreSQL, emr_application_id for Glue
-    app_id = config.get('emr_postgres_application_id') or config.get('emr_application_id')
-    
-    # Use JDBC driver if provided by backend
-    jdbc_driver = config.get('jdbc_driver_path', '')
-    
-    # Upload code to S3
-    script_key = f"scripts/spark_script_{int(time.time())}.py"
-    s3_client.put_object(
-        Bucket=config['s3_bucket'],
-        Key=script_key,
-        Body=spark_code.encode('utf-8')
-    )
-    script_path = f"s3://{config['s3_bucket']}/{script_key}"
-    
-    # Build spark-submit parameters
-    spark_params = '--conf spark.executor.memory=4g --conf spark.executor.cores=2'
-    if jdbc_driver:
-        spark_params += f' --jars {jdbc_driver}'
-    
-    # Get account ID dynamically if not provided
-    emr_role_arn = os.environ.get('EMR_EXECUTION_ROLE_ARN')
-    if not emr_role_arn:
-        # Get account ID from STS
-        sts_client = boto3.client('sts')
-        account_id = sts_client.get_caller_identity()['Account']
-        emr_role_arn = f"arn:aws:iam::{account_id}:role/EMRServerlessExecutionRole"
-    
-    # Start EMR job
-    response = emr_client.start_job_run(
-        applicationId=app_id,
-        executionRoleArn=emr_role_arn,
-        jobDriver={
-            'sparkSubmit': {
-                'entryPoint': script_path,
-                'sparkSubmitParameters': spark_params
-            }
-        },
-        configurationOverrides={
-            'monitoringConfiguration': {
-                's3MonitoringConfiguration': {
-                    'logUri': f"s3://{config['s3_bucket']}/logs/emr/"
-                },
-                'cloudWatchLoggingConfiguration': {
-                    'enabled': True
-                }
-            }
-        }
-    )
-    
-    job_run_id = response['jobRunId']
-    
-    # Wait for job completion (with timeout)
-    timeout = config['emr_timeout_minutes'] * 60
-    start_time = time.time()
-    
-    while time.time() - start_time < timeout:
-        job_status = emr_client.get_job_run(
-            applicationId=app_id,
-            jobRunId=job_run_id
-        )
-        
-        state = job_status['jobRun']['state']
-        
-        if state in ['SUCCESS', 'FAILED', 'CANCELLED']:
-            return {
-                'status': 'success' if state == 'SUCCESS' else 'error',
-                'execution_platform': 'emr',
-                's3_output_path': s3_output_path,
-                'job_run_id': job_run_id,
-                'job_state': state,
-                'emr_application_id': app_id
-            }
-        
-        time.sleep(10)
-    
-    return {
-        'status': 'timeout',
-        'execution_platform': 'emr',
-        'job_run_id': job_run_id,
-        'message': f'Job exceeded timeout of {config["emr_timeout_minutes"]} minutes'
-    }
+    return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-execute-spark-on-emr", {
+        'spark_code': spark_code,
+        's3_output_path': s3_output_path,
+        's3_bucket': config.get('s3_bucket', ''),
+        'session_id': CURRENT_SESSION_ID or '',
+        'emr_application_id': config.get('emr_postgres_application_id') or config.get('emr_application_id', ''),
+        'emr_execution_role_arn': os.environ.get('EMR_EXECUTION_ROLE_ARN', ''),
+        'emr_timeout_minutes': config.get('emr_timeout_minutes', 15),
+        'jdbc_driver_path': config.get('jdbc_driver_path', ''),
+        'region': config.get('bedrock_region', AWS_REGION),
+    })
 
 @tool
 def extract_execution_logs(execution_result: Union[dict, str]) -> dict:
@@ -778,247 +457,37 @@ def extract_execution_logs(execution_result: Union[dict, str]) -> dict:
 
 @tool
 def fetch_spark_results(s3_output_path: str, max_rows: int = None) -> dict:
-    """Fetch results from S3 output path (CSV or Parquet)
-    
-    Args:
-        s3_output_path: S3 path containing results
-        max_rows: Maximum rows to return (default from config)
-    
-    Returns:
-        Results data
-    """
-    import boto3
-    import pandas as pd
-    from io import StringIO, BytesIO
-    from datetime import datetime, timezone, timedelta
-    
+    """Fetch Spark execution results from S3 output path via MCP tool Lambda"""
     config = get_config()
-    if max_rows is None:
-        max_rows = config['result_preview_rows']
-    
-    try:
-        s3_client = boto3.client('s3', region_name=config['bedrock_region'])
-        bucket = s3_output_path.replace('s3://', '').split('/')[0]
-        prefix = '/'.join(s3_output_path.replace('s3://', '').split('/')[1:])
-        
-        # List files modified in last 30 minutes (extended for EMR job time + table processing)
-        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix)
-        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=30)
-        
-        # Check for CSV files first (most common for Spark output)
-        csv_files = [(obj['Key'], obj['LastModified']) for obj in response.get('Contents', []) 
-                     if obj['Key'].endswith('.csv') and not obj['Key'].endswith('_SUCCESS')
-                     and obj['LastModified'] > cutoff_time]
-        
-        # Also check for part files (common in distributed Spark output)
-        part_files = [(obj['Key'], obj['LastModified']) for obj in response.get('Contents', []) 
-                      if 'part-' in obj['Key'] and obj['Key'].endswith('.csv')
-                      and obj['LastModified'] > cutoff_time]
-        
-        # Combine CSV and part files
-        all_csv_files = csv_files + part_files
-        
-        # Fallback to Parquet files if no CSV found
-        parquet_files = [(obj['Key'], obj['LastModified']) for obj in response.get('Contents', []) 
-                         if obj['Key'].endswith('.parquet') and not obj['Key'].endswith('_SUCCESS')
-                         and obj['LastModified'] > cutoff_time]
-        
-        if all_csv_files:
-            # Process CSV file (prefer regular CSV over part files)
-            regular_csv = [f for f in all_csv_files if not 'part-' in f[0]]
-            files_to_process = regular_csv if regular_csv else all_csv_files
-            files_to_process.sort(key=lambda x: x[1], reverse=True)
-            most_recent_file = files_to_process[0][0]
-            
-            obj = s3_client.get_object(Bucket=bucket, Key=most_recent_file)
-            csv_content = obj['Body'].read().decode('utf-8')
-            
-            # Detect headers
-            lines = csv_content.strip().split('\n')
-            if len(lines) > 1:
-                first_row = lines[0].split(',')
-                has_headers = any(not val.strip().replace('.', '').replace('-', '').isdigit() 
-                                for val in first_row if val.strip())
-            else:
-                has_headers = False
-            
-            df = pd.read_csv(StringIO(csv_content)) if has_headers else pd.read_csv(StringIO(csv_content), header=None)
-            file_format = 'csv'
-            
-        elif parquet_files:
-            # Process Parquet file
-            parquet_files.sort(key=lambda x: x[1], reverse=True)
-            most_recent_file = parquet_files[0][0]
-            
-            obj = s3_client.get_object(Bucket=bucket, Key=most_recent_file)
-            parquet_content = obj['Body'].read()
-            df = pd.read_parquet(BytesIO(parquet_content))
-            file_format = 'parquet'
-            
-        else:
-            return {
-                'status': 'success',
-                'data': [],
-                'row_count': 0,
-                'message': 'No recent CSV or Parquet files found in output path'
-            }
-        
-        # Generate presigned URL
-        presigned_url = s3_client.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': bucket, 'Key': most_recent_file},
-            ExpiresIn=config['presigned_url_expiry_hours'] * 3600
-        )
-        
-        return {
-            'status': 'success',
-            'data': df.head(max_rows).to_dict('records'),
-            'row_count': len(df),
-            'preview_rows': max_rows,
-            'total_files': len(all_csv_files) + len(parquet_files),
-            'file_format': file_format,
-            'presigned_url': presigned_url,
-            's3_path': f"s3://{bucket}/{most_recent_file}"
-        }
-    except Exception as e:
-        return {
-            'status': 'error', 
-            'error': str(e),
-            'data': [],
-            'row_count': 0
-        }
+    return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-fetch-spark-results", {
+        's3_output_path': s3_output_path,
+        's3_bucket': config.get('s3_bucket', ''),
+        'max_rows': max_rows or config.get('result_preview_rows', 100),
+        'presigned_url_expiry_hours': config.get('presigned_url_expiry_hours', 24),
+        'region': config.get('bedrock_region', AWS_REGION),
+    })
 
 @tool
 def fetch_glue_table_schema(database_name: str, table_name: str) -> dict:
-    """Fetch detailed schema for a Glue table
-    
-    Args:
-        database_name: Glue database name
-        table_name: Glue table name
-    
-    Returns:
-        Table schema with columns, types, location, and partitions
-    """
-    import boto3
-    
-    try:
-        glue_client = boto3.client('glue', region_name=AWS_REGION)
-        response = glue_client.get_table(DatabaseName=database_name, Name=table_name)
-        table = response['Table']
-        
-        storage_desc = table.get('StorageDescriptor', {})
-        columns = [{'name': col['Name'], 'type': col['Type'], 'comment': col.get('Comment', '')} 
-                   for col in storage_desc.get('Columns', [])]
-        
-        partition_keys = [{'name': pk['Name'], 'type': pk['Type']} 
-                         for pk in table.get('PartitionKeys', [])]
-        
-        return {
-            'status': 'success',
-            'database': database_name,
-            'table': table_name,
-            'location': storage_desc.get('Location', ''),
-            'input_format': storage_desc.get('InputFormat', ''),
-            'output_format': storage_desc.get('OutputFormat', ''),
-            'columns': columns,
-            'partition_keys': partition_keys,
-            'table_type': table.get('TableType', ''),
-            'parameters': table.get('Parameters', {})
-        }
-    except Exception as e:
-        return {
-            'status': 'error',
-            'error': str(e),
-            'database': database_name,
-            'table': table_name
-        }
+    """Fetch detailed schema for a Glue table via MCP tool Lambda"""
+    return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-get-glue-table-schema", {
+        'database_name': database_name,
+        'table_name': table_name,
+        'region': AWS_REGION,
+    })
 
 @tool
 def fetch_postgres_table_schema(jdbc_url: str, secret_arn: str, database: str, schema: str, table: str) -> dict:
-    """Fetch schema for a PostgreSQL table by querying information_schema
-    
-    Args:
-        jdbc_url: PostgreSQL JDBC URL
-        secret_arn: Secrets Manager ARN for credentials
-        database: Database name
-        schema: Schema name (e.g., 'public')
-        table: Table name
-    
-    Returns:
-        Table schema with columns and types
-    """
-    import boto3
-    import json
-    
-    try:
-        import psycopg2
-    except ImportError:
-        return {
-            'status': 'error',
-            'error': 'psycopg2 not installed',
-            'database': database,
-            'schema': schema,
-            'table': table
-        }
-    
-    try:
-        # Get credentials from Secrets Manager
-        secrets_client = boto3.client('secretsmanager', region_name=AWS_REGION)
-        secret = secrets_client.get_secret_value(SecretId=secret_arn)
-        creds = json.loads(secret['SecretString'])
-        
-        # Parse JDBC URL to get host and port
-        # jdbc:postgresql://host:port/database
-        jdbc_parts = jdbc_url.replace('jdbc:postgresql://', '').split('/')
-        host_port = jdbc_parts[0].split(':')
-        host = host_port[0]
-        port = int(host_port[1]) if len(host_port) > 1 else 5432
-        
-        # Connect and query schema
-        conn = psycopg2.connect(
-            host=host,
-            port=port,
-            database=database,
-            user=creds['username'],
-            password=creds['password']
-        )
-        
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT column_name, data_type, is_nullable
-            FROM information_schema.columns
-            WHERE table_schema = %s AND table_name = %s
-            ORDER BY ordinal_position
-        """, (schema, table))
-        
-        columns = [
-            {
-                'name': row[0],
-                'type': row[1],
-                'nullable': row[2] == 'YES'
-            }
-            for row in cursor.fetchall()
-        ]
-        
-        cursor.close()
-        conn.close()
-        
-        return {
-            'status': 'success',
-            'database': database,
-            'schema': schema,
-            'table': table,
-            'columns': columns,
-            'jdbc_url': jdbc_url
-        }
-    except Exception as e:
-        return {
-            'status': 'error',
-            'error': str(e),
-            'database': database,
-            'schema': schema,
-            'table': table
-        }
+    """Fetch schema for a PostgreSQL table via MCP tool Lambda"""
+    return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-get-postgres-table-schema", {
+        'jdbc_url': jdbc_url,
+        'secret_arn': secret_arn,
+        'database': database,
+        'schema': schema,
+        'table': table,
+        'region': AWS_REGION,
+    })
+
 
 def create_spark_supervisor_agent():
     """Create Spark supervisor agent that orchestrates the full workflow"""
