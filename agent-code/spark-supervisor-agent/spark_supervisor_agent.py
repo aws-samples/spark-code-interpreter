@@ -22,12 +22,24 @@ AWS_REGION = session.region_name or 'us-east-1'
 # Global session tracking
 CURRENT_SESSION_ID = None
 
-# Environment prefix for MCP tool Lambda names
-ENVIRONMENT = os.environ.get('ENVIRONMENT', 'dev')
+# Environment prefix for MCP tool Lambda names — derived from runtime config
+ENVIRONMENT = os.environ.get('ENVIRONMENT', '')
+
+
+def _get_environment():
+    """Get environment prefix from config or env var."""
+    if ENVIRONMENT:
+        return ENVIRONMENT
+    config = get_config()
+    # Derive from lambda_function name: "dev-spark-on-lambda" → "dev"
+    lambda_fn = config.get('lambda_function', '')
+    if lambda_fn and '-spark-' in lambda_fn:
+        return lambda_fn.split('-spark-')[0]
+    return 'dev'
 
 
 def _invoke_mcp_tool(function_name: str, payload: dict) -> dict:
-    """Invoke an MCP tool Lambda function and return parsed result."""
+    """Invoke an MCP tool Lambda directly (hot path — low latency)."""
     from botocore.config import Config
 
     lambda_client = boto3.client(
@@ -44,6 +56,80 @@ def _invoke_mcp_tool(function_name: str, payload: dict) -> dict:
     if 'body' in result:
         return json.loads(result['body']) if isinstance(result['body'], str) else result['body']
     return result
+
+
+def _invoke_mcp_via_gateway(tool_name: str, params: dict) -> dict:
+    """Call an MCP tool via the internal AgentCore Gateway with IAM auth (cold path).
+
+    Used for infrequent operations: EMR execution, Glue schema, PostgreSQL schema.
+    """
+    import urllib.request
+    import urllib.error
+    from botocore.auth import SigV4Auth
+    from botocore.awsrequest import AWSRequest
+
+    config = get_config()
+    gateway_url = config.get('internal_gateway_url', '')
+    
+    print(f"🔍 _invoke_mcp_via_gateway: tool={tool_name}")
+    print(f"🔍 gateway_url={gateway_url[:80] if gateway_url else 'EMPTY'}")
+    
+    if not gateway_url:
+        print("❌ internal_gateway_url not set in config")
+        print(f"🔍 Config keys: {list(config.keys())}")
+        return {'status': 'error', 'error': 'internal_gateway_url not set in config'}
+
+    body = json.dumps({
+        "jsonrpc": "2.0",
+        "method": "tools/call",
+        "params": {"name": tool_name, "arguments": params},
+        "id": 1,
+    })
+
+    aws_request = AWSRequest(
+        method='POST',
+        url=gateway_url,
+        data=body,
+        headers={'Content-Type': 'application/json'},
+    )
+
+    session = boto3.Session()
+    credentials = session.get_credentials()
+    if credentials:
+        frozen = credentials.get_frozen_credentials()
+        print(f"🔍 Credentials: access_key={frozen.access_key[:8]}..., has_token={bool(frozen.token)}")
+        SigV4Auth(frozen, 'bedrock-agentcore', AWS_REGION).add_auth(aws_request)
+    else:
+        print("❌ No credentials available")
+        return {'status': 'error', 'error': 'No AWS credentials available in runtime'}
+
+    req = urllib.request.Request(
+        aws_request.url,
+        data=body.encode('utf-8'),
+        headers=dict(aws_request.headers),
+        method='POST',
+    )
+
+    try:
+        resp = urllib.request.urlopen(req, timeout=900)
+        result = json.loads(resp.read().decode('utf-8'))
+        print(f"✅ Gateway call succeeded for {tool_name}")
+        # MCP response: {"jsonrpc": "2.0", "result": {"content": [...]}, "id": 1}
+        if 'result' in result:
+            content = result['result'].get('content', [])
+            if content and isinstance(content[0], dict) and 'text' in content[0]:
+                return json.loads(content[0]['text'])
+            return result['result']
+        if 'error' in result:
+            return {'status': 'error', 'error': result['error'].get('message', str(result['error']))}
+        return result
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8') if e.fp else str(e)
+        print(f"❌ Gateway HTTP {e.code}: {error_body[:200]}")
+        return {'status': 'error', 'error': f"Gateway HTTP {e.code}: {error_body[:500]}"}
+    except Exception as e:
+        print(f"❌ Gateway call failed: {str(e)}")
+        return {'status': 'error', 'error': f"Gateway call failed: {str(e)}"}
 
 def load_spark_config():
     """Load Spark configuration - will be overridden by runtime config"""
@@ -93,32 +179,85 @@ def extract_python_code(text: str) -> str:
 
 @tool
 def call_code_generation_agent(prompt: str, session_id: str, s3_input_path: str = None, selected_tables: list = None, selected_postgres_tables: list = None, s3_output_path: str = None) -> str:
-    """Call Code Generation Agent to generate Spark code via MCP tool Lambda"""
+    """Call Code Generation Agent directly on AgentCore Runtime to generate Spark code"""
     config = get_config()
-    result = _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-generate-spark-code", {
-        'prompt': prompt,
+
+    code_gen_agent_arn = config.get('code_gen_agent_arn')
+    if not code_gen_agent_arn:
+        return "CODE_GEN_ERROR: code_gen_agent_arn not set in config"
+
+    model_id = config.get('model_id') or config.get('bedrock_model')
+    if not model_id:
+        return "CODE_GEN_ERROR: model_id not set in config"
+
+    # Build data context
+    data_context = ""
+    if s3_input_path:
+        data_context += f"\nS3 CSV file: {s3_input_path}"
+    if selected_tables:
+        if isinstance(selected_tables[0], dict):
+            table_names = [f"{t['database']}.{t['table']}" for t in selected_tables]
+            data_context += f"\nGlue tables: {', '.join(table_names)}"
+            if selected_tables[0].get('location'):
+                data_context += f"\nS3 bucket for warehouse: {selected_tables[0]['location']}"
+        else:
+            data_context += f"\nGlue tables: {', '.join(selected_tables)}"
+    if selected_postgres_tables:
+        pg_ctx = "\n\nPostgreSQL tables:\n"
+        for pg in selected_postgres_tables:
+            pg_ctx += f"- {pg.get('database','')}.{pg.get('schema','')}.{pg.get('table','')}\n"
+            pg_ctx += f"  JDBC URL: {pg.get('jdbc_url','')}\n"
+            pg_ctx += f"  Auth Method: {pg.get('auth_method','secrets_manager')}\n"
+            pg_ctx += f"  Secret ARN: {pg.get('secret_arn','')}\n"
+        data_context += pg_ctx
+        jdbc_driver = config.get('jdbc_driver_path')
+        if jdbc_driver:
+            data_context += f"\nJDBC Driver: {jdbc_driver}\n"
+    if s3_output_path:
+        data_context += f"\nWrite results to: {s3_output_path}"
+
+    full_prompt = f"{prompt}{data_context}"
+
+    payload = {
+        'prompt': full_prompt,
         'session_id': session_id,
-        's3_input_path': s3_input_path,
-        'selected_tables': selected_tables,
-        'selected_postgres_tables': selected_postgres_tables,
-        's3_output_path': s3_output_path,
-        's3_bucket': config.get('s3_bucket', ''),
-        'model_id': config.get('model_id') or config.get('bedrock_model'),
-        'code_gen_agent_arn': config.get('code_gen_agent_arn'),
-        'jdbc_driver_path': config.get('jdbc_driver_path'),
-        'region': config.get('region', AWS_REGION),
-    })
-    if result.get('status') == 'success':
-        return result.get('code', '')
-    return f"CODE_GEN_ERROR: {result.get('error', 'Unknown error')}"
+        'model_id': model_id,
+    }
+
+    try:
+        agentcore_client = boto3.client(
+            'bedrock-agentcore',
+            region_name=config.get('region', AWS_REGION),
+            config=boto3.session.Config(read_timeout=300, connect_timeout=60),
+        )
+
+        response = agentcore_client.invoke_agent_runtime(
+            agentRuntimeArn=code_gen_agent_arn,
+            runtimeSessionId=session_id,
+            qualifier='DEFAULT',
+            payload=json.dumps(payload),
+        )
+
+        if 'response' in response:
+            code = response['response'].read().decode('utf-8')
+            if code.startswith('```python'):
+                code = code[10:-3].strip()
+            elif code.startswith('```'):
+                code = code[3:-3].strip()
+            return code
+        else:
+            return "CODE_GEN_ERROR: No response from code generation agent"
+    except Exception as e:
+        return f"CODE_GEN_ERROR: {str(e)}"
 
 @tool
-def select_execution_platform(s3_input_path: str = None, file_size_mb: float = 0) -> str:
-    """Intelligently select execution platform based on file size threshold
+def select_execution_platform(s3_input_path: str = None, file_size_mb: float = 0, selected_tables: list = None) -> str:
+    """Intelligently select execution platform based on data source and size.
     
     Args:
         s3_input_path: S3 path to input file (optional, for size detection)
         file_size_mb: File size in MB if known
+        selected_tables: List of Glue table dicts (always routes to EMR)
     
     Returns:
         Selected platform: 'lambda' or 'emr'
@@ -127,6 +266,10 @@ def select_execution_platform(s3_input_path: str = None, file_size_mb: float = 0
     config = get_config()
     threshold = config.get('file_size_threshold_mb', 500)
     
+    # Glue tables ALWAYS go to EMR (Lambda doesn't have Glue catalog support)
+    if selected_tables:
+        return 'emr'
+    
     # If file size provided, use it
     if file_size_mb > 0:
         return 'emr' if file_size_mb > threshold else 'lambda'
@@ -134,7 +277,7 @@ def select_execution_platform(s3_input_path: str = None, file_size_mb: float = 0
     # Try to detect file size from S3 path
     if s3_input_path and s3_input_path.startswith('s3://'):
         try:
-            s3_client = boto3.client('s3', region_name=config['bedrock_region'])
+            s3_client = boto3.client('s3', region_name=config.get('bedrock_region', AWS_REGION))
             bucket = s3_input_path.replace('s3://', '').split('/')[0]
             key = '/'.join(s3_input_path.replace('s3://', '').split('/')[1:])
             
@@ -144,7 +287,7 @@ def select_execution_platform(s3_input_path: str = None, file_size_mb: float = 0
         except:
             pass
     
-    # Default to lambda for unknown sizes
+    # Default to lambda for unknown sizes (CSV queries, calculations)
     return 'lambda'
 
 @tool
@@ -265,7 +408,7 @@ with open('/tmp/output.json', 'w') as f:
 def execute_spark_code_lambda(spark_code: str, s3_output_path: str) -> dict:
     """Execute validated Spark code on AWS Lambda via MCP tool Lambda"""
     config = get_config()
-    return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-execute-spark-on-lambda", {
+    return _invoke_mcp_tool(f"{_get_environment()}-spark-tool-execute-spark-on-lambda", {
         'spark_code': spark_code,
         's3_output_path': s3_output_path,
         'lambda_function': config.get('lambda_function', ''),
@@ -277,15 +420,15 @@ def execute_spark_code_lambda(spark_code: str, s3_output_path: str) -> dict:
 
 @tool
 def execute_spark_code_emr(spark_code: str, s3_output_path: str) -> dict:
-    """Execute validated Spark code on EMR Serverless via MCP tool Lambda"""
+    """Execute validated Spark code on EMR Serverless via Gateway MCP"""
     config = get_config()
-    return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-execute-spark-on-emr", {
+    return _invoke_mcp_via_gateway("execute-spark-on-emr___execute_spark_on_emr", {
         'spark_code': spark_code,
         's3_output_path': s3_output_path,
         's3_bucket': config.get('s3_bucket', ''),
         'session_id': CURRENT_SESSION_ID or '',
         'emr_application_id': config.get('emr_postgres_application_id') or config.get('emr_application_id', ''),
-        'emr_execution_role_arn': os.environ.get('EMR_EXECUTION_ROLE_ARN', ''),
+        'emr_execution_role_arn': config.get('emr_execution_role_arn', ''),
         'emr_timeout_minutes': config.get('emr_timeout_minutes', 15),
         'jdbc_driver_path': config.get('jdbc_driver_path', ''),
         'region': config.get('bedrock_region', AWS_REGION),
@@ -461,7 +604,7 @@ def extract_execution_logs(execution_result: Union[dict, str]) -> dict:
 def fetch_spark_results(s3_output_path: str, max_rows: int = None) -> dict:
     """Fetch Spark execution results from S3 output path via MCP tool Lambda"""
     config = get_config()
-    return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-fetch-spark-results", {
+    return _invoke_mcp_tool(f"{_get_environment()}-spark-tool-fetch-spark-results", {
         's3_output_path': s3_output_path,
         's3_bucket': config.get('s3_bucket', ''),
         'session_id': CURRENT_SESSION_ID or '',
@@ -472,17 +615,20 @@ def fetch_spark_results(s3_output_path: str, max_rows: int = None) -> dict:
 
 @tool
 def fetch_glue_table_schema(database_name: str, table_name: str) -> dict:
-    """Fetch detailed schema for a Glue table via MCP tool Lambda"""
-    return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-get-glue-table-schema", {
+    """Fetch detailed schema for a Glue table via Gateway MCP. Also extracts a 200-row sample CSV for validation."""
+    config = get_config()
+    return _invoke_mcp_via_gateway("get-glue-table-schema___get_glue_table_schema", {
         'database_name': database_name,
         'table_name': table_name,
+        's3_bucket': config.get('s3_bucket', ''),
+        'session_id': CURRENT_SESSION_ID or '',
         'region': AWS_REGION,
     })
 
 @tool
 def fetch_postgres_table_schema(jdbc_url: str, secret_arn: str, database: str, schema: str, table: str) -> dict:
-    """Fetch schema for a PostgreSQL table via MCP tool Lambda"""
-    return _invoke_mcp_tool(f"{ENVIRONMENT}-spark-tool-get-postgres-table-schema", {
+    """Fetch schema for a PostgreSQL table via Gateway MCP"""
+    return _invoke_mcp_via_gateway("get-postgres-table-schema___get_postgres_table_schema", {
         'jdbc_url': jdbc_url,
         'secret_arn': secret_arn,
         'database': database,
@@ -529,6 +675,17 @@ CRITICAL TOOL SELECTION - READ CAREFULLY:
 - NEVER call both tools in the same request
 - NEVER call fetch_postgres_table_schema when selected_postgres_tables is None or empty
 
+GLUE TABLE DETECTION FROM PROMPT:
+- If the user prompt mentions a table in "database.table" or "database_name.table_name" format
+  (e.g., "spark_test_db.sample_sales", "my_db.orders")
+  AND "Selected tables:" is NOT in context (i.e., selected_tables is None):
+  → Extract the database name and table name from the prompt
+  → Call fetch_glue_table_schema(database_name="...", table_name="...")
+  → Use the returned schema to generate code with proper Glue catalog configuration
+  → Then call select_execution_platform with selected_tables to determine platform (will route to EMR)
+- This enables Glue table queries via MCP Gateway or CLI without requiring UI table selection
+- If fetch_glue_table_schema returns an error, inform the user the table was not found
+
 VALIDATION EXECUTION PLATFORM SELECTION:
 - ALWAYS start validation with Lambda (call execute_spark_code_lambda)
 - If Lambda fails with resource/memory error: Switch to EMR for remaining validations in this session
@@ -536,44 +693,56 @@ VALIDATION EXECUTION PLATFORM SELECTION:
 - Once switched to EMR, all subsequent validations in session use EMR
 
 FOR GENERIC/CSV/NO-DATASOURCE REQUESTS (when both selected_tables and selected_postgres_tables are None):
-1. Call call_code_generation_agent directly with the prompt (no schema fetching needed)
-2. Call extract_python_code to clean the code - STORE this as your validated_code variable
-3. Call validate_spark_code to check basic requirements
-4. Call execute_spark_code_lambda for validation execution (or execute_spark_code_emr if already switched)
-5. STOP AND WAIT - Check result.status (Lambda) or result.job_state (EMR)
-6. IF execution succeeded:
-   - Call extract_execution_logs(execution_result=<dict from step 4>)
-   - Call fetch_spark_results to get output data
-   - Return final JSON response with validated_code - DONE
-7. IF execution failed:
-   - Call extract_execution_logs to analyze error
-   - IF error is Lambda resource issue AND currently using Lambda:
-     * Switch to EMR for next attempt
-     * Go back to step 4 with execute_spark_code_emr (do NOT regenerate code)
-   - ELSE IF attempts < 3:
-     * Go back to step 1 with error feedback to regenerate code
+
+IF s3_sample_path IS PROVIDED (2-phase execution for CSV files):
+  PHASE 1 - FAST VALIDATION (using sample, on Lambda):
+  1. Call call_code_generation_agent with the prompt, using s3_sample_path as the data source
+  2. Call extract_python_code to clean the code
+  3. Call validate_spark_code to check basic requirements
+  4. Call execute_spark_code_lambda for fast validation (~10s with 200 rows)
+  5. IF validation succeeds → code logic is correct, proceed to Phase 2
+  6. IF validation fails with code error → regenerate (up to 3 attempts)
+
+  PHASE 2 - PRODUCTION EXECUTION (using full file, right platform):
+  7. Rewrite the validated code: replace s3_sample_path with s3_input_path (full file)
+  8. Call select_execution_platform(s3_input_path) to determine Lambda vs EMR
+  9. Execute on the selected platform (Lambda for <500MB, EMR for >500MB)
+  10. Call extract_execution_logs and fetch_spark_results
+  11. Return final JSON response with the PRODUCTION code (using full path)
+
+IF s3_sample_path IS NOT PROVIDED (direct execution):
+  1. Call call_code_generation_agent directly with the prompt
+  2. Call extract_python_code to clean the code
+  3. Call validate_spark_code to check basic requirements
+  4. Call execute_spark_code_lambda for execution
+  5. IF execution succeeded:
+     - Call extract_execution_logs and fetch_spark_results
+     - Return final JSON response - DONE
+  6. IF execution failed:
+     - IF Lambda resource issue → switch to EMR
+     - ELSE IF attempts < 3 → regenerate code
 
 FOR GLUE TABLES (when selected_tables are provided AND selected_postgres_tables is None):
-1. Call fetch_glue_table_schema for each table to get detailed schema
-2. Call call_code_generation_agent to generate Spark code with table schemas
-3. Call extract_python_code to clean the code - STORE this as your validated_code variable
+1. Call fetch_glue_table_schema for each table to get detailed schema AND sample_s3_path
+2. VALIDATION PHASE: Generate code using spark.read.csv(sample_s3_path) to validate logic on Lambda
+   - The sample_s3_path contains 200 rows extracted from the Glue table
+   - Use spark.read.option("header", "true").option("inferSchema", "true").csv(sample_s3_path)
+   - This avoids Glue catalog dependency on Lambda
+3. Call extract_python_code to clean the code
 4. Call validate_spark_code to check basic requirements
-5. Call execute_spark_code_lambda for validation execution (or execute_spark_code_emr if already switched)
-6. STOP AND WAIT - Check result.status (Lambda) or result.job_state (EMR)
-   - Lambda SUCCESS: result.status == 'success'
-   - EMR SUCCESS: result.job_state == 'SUCCESS'
-   - Check for resource errors in logs (memory, timeout, capacity)
-7. IF execution succeeded:
-   - Call extract_execution_logs(execution_result=<dict from step 5>)
-   - Call fetch_spark_results to get output data
-   - Return final JSON response with validated_code - DONE
-8. IF execution failed:
-   - Call extract_execution_logs to analyze error
-   - IF error is Lambda resource issue (memory/timeout/capacity) AND currently using Lambda:
-     * Switch to EMR for next attempt
-     * Go back to step 5 with execute_spark_code_emr (do NOT regenerate code)
-   - ELSE IF attempts < 3:
-     * Go back to step 2 with error feedback to regenerate code
+5. Call execute_spark_code_lambda for validation with sample data
+6. IF validation succeeds:
+   - PRODUCTION PHASE: Rewrite the validated code to use spark.table("database.table")
+   - Add Glue catalog configuration (warehouse.dir, factory.class, enableHiveSupport)
+   - Call execute_spark_code_emr for production execution with full data
+7. Call extract_execution_logs and fetch_spark_results
+8. Return final JSON response
+
+IMPORTANT FOR GLUE VALIDATION:
+- During validation (step 2-5): Use spark.read.csv(sample_s3_path) — works on Lambda
+- During production (step 6): Use spark.table("database.table") with Glue config — works on EMR
+- The sample_s3_path is returned by fetch_glue_table_schema in the response
+- If sample_s3_path is not available, skip validation and go directly to EMR
 
 FOR POSTGRESQL TABLES (when selected_postgres_tables are provided AND selected_tables is None):
 1. Call fetch_postgres_table_schema for each table to get detailed schema
@@ -703,7 +872,7 @@ EXAMPLE - ALWAYS include the COMPLETE actual code:
     agent = Agent(
         model=model,
         system_prompt=system_prompt,
-        tools=[select_execution_platform, fetch_glue_table_schema, call_code_generation_agent, extract_python_code, validate_spark_code, execute_spark_code_lambda, execute_spark_code_emr, extract_execution_logs, fetch_spark_results],
+        tools=[select_execution_platform, fetch_glue_table_schema, call_code_generation_agent, extract_python_code, validate_spark_code, ensure_output_file_writing, execute_spark_code_lambda, execute_spark_code_emr, extract_execution_logs, fetch_spark_results],
         name="SparkSupervisorAgent"
     )
     
@@ -731,6 +900,7 @@ def invoke(payload):
     session_id = payload.get("session_id", "")
     CURRENT_SESSION_ID = session_id
     s3_input_path = payload.get("s3_input_path")
+    s3_sample_path = payload.get("s3_sample_path")
     s3_output_path = payload.get("s3_output_path")
     selected_tables = payload.get("selected_tables")
     selected_postgres_tables = payload.get("selected_postgres_tables")
@@ -764,7 +934,10 @@ DO NOT retry or regenerate code in execute-only mode."""
         data_sources = []
         
         if s3_input_path:
-            data_sources.append(f"S3 CSV file: {s3_input_path}")
+            data_sources.append(f"S3 CSV file (full): {s3_input_path}")
+            if s3_sample_path:
+                data_sources.append(f"S3 CSV sample (200 rows): {s3_sample_path}")
+                data_sources.append("USE THE SAMPLE PATH for validation (fast). USE THE FULL PATH for production execution.")
         
         if selected_tables:
             tables_info = f"Glue tables: {selected_tables}"

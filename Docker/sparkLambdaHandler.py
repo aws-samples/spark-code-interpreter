@@ -44,9 +44,9 @@ def local_code_executy(code_string, spark_configs):
     
     spark_submit_args = [
         "spark-submit",
-        "--jars", f"{hadoop_aws_jar},{aws_sdk_jar}",  # Add S3 JARs to classpath
-        "--conf", "spark.driver.extraJavaOptions=-Dlog4j.configuration=file:/opt/spark/conf/log4j.properties",
-        "--conf", "spark.executor.extraJavaOptions=-Dlog4j.configuration=file:/opt/spark/conf/log4j.properties",
+        "--jars", f"{hadoop_aws_jar},{aws_sdk_jar}",
+        "--conf", f"spark.driver.extraJavaOptions=-Dlog4j.configuration=file:{spark_home}/conf/log4j.properties",
+        "--conf", f"spark.executor.extraJavaOptions=-Dlog4j.configuration=file:{spark_home}/conf/log4j.properties",
         "--conf", "spark.driver.host=127.0.0.1",
         "--conf", "spark.driver.bindAddress=127.0.0.1",
         "--conf", "spark.driver.port=0",
@@ -109,17 +109,27 @@ def local_code_executy(code_string, spark_configs):
 
 def parse_error(stdout, stderr, code_string, log_file_path):
     logger.info("Parsing error details from Spark execution")
+    
+    # Truncate large outputs to prevent 6MB Lambda response limit
+    MAX_OUTPUT_SIZE = 50000  # 50KB max per section
+    
     error_message = "Execution Error:\n"
 
-    # Add stdout if it exists
+    # Add stdout if it exists (truncated)
     if stdout:
         logger.debug("Adding stdout to error message")
-        error_message += f"Standard Output:\n{stdout}\n\n"
+        truncated_stdout = stdout[-MAX_OUTPUT_SIZE:] if len(stdout) > MAX_OUTPUT_SIZE else stdout
+        if len(stdout) > MAX_OUTPUT_SIZE:
+            truncated_stdout = f"[...truncated {len(stdout) - MAX_OUTPUT_SIZE} chars...]\n" + truncated_stdout
+        error_message += f"Standard Output:\n{truncated_stdout}\n\n"
 
-    # Add stderr if it exists
+    # Add stderr if it exists (truncated)
     if stderr:
         logger.debug("Adding stderr to error message")
-        error_message += f"Standard Error:\n{stderr}\n\n"
+        truncated_stderr = stderr[-MAX_OUTPUT_SIZE:] if len(stderr) > MAX_OUTPUT_SIZE else stderr
+        if len(stderr) > MAX_OUTPUT_SIZE:
+            truncated_stderr = f"[...truncated {len(stderr) - MAX_OUTPUT_SIZE} chars...]\n" + truncated_stderr
+        error_message += f"Standard Error:\n{truncated_stderr}\n\n"
 
     # Look for Python tracebacks in stderr
     python_error_pattern = r'Traceback \(most recent call last\):(.*?)(?:\n\n|\Z)'
@@ -150,11 +160,8 @@ def parse_error(stdout, stderr, code_string, log_file_path):
 
             error_message += f"Error on line {line_no}:\n{context}\n\nError Type: {error_type}\n\n"
 
-    # Add contents of log file if it exists
-    if os.path.exists(log_file_path):
-        with open(log_file_path, 'r') as log_file:
-            log_contents = log_file.read()
-            error_message += f"Log File Contents:\n{log_contents}\n\n"
+    # Skip log file contents to avoid 6MB payload limit
+    # Log file is available at /tmp/spark_log.txt for debugging if needed
 
     return error_message
     

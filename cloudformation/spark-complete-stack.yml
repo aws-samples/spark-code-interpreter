@@ -379,7 +379,7 @@ Resources:
                   - lambda:InvokeFunction
                 Resource:
                   - !GetAtt SparkOnLambda.Arn
-                  - !GetAtt SparkAgentWrapper.Arn
+                  - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Environment}-spark-agent-wrapper'
                   - !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${Environment}-spark-tool-*'
               - Effect: Allow
                 Action:
@@ -392,7 +392,7 @@ Resources:
     Type: AWS::BedrockAgentCore::Gateway
     Properties:
       Name: !Sub '${Environment}-spark-gateway'
-      Description: 'Spark Supervisor Agent Gateway with Cognito JWT and MCP support'
+      Description: 'External Gateway for MCP clients with Cognito JWT authentication'
       RoleArn: !GetAtt GatewayRole.Arn
       AuthorizerType: CUSTOM_JWT
       AuthorizerConfiguration:
@@ -403,13 +403,17 @@ Resources:
       ProtocolType: MCP
       ProtocolConfiguration:
         Mcp:
-          Instructions: 'Gateway for Spark code generation and execution. Use this to invoke the Spark Supervisor Agent for data processing tasks.'
+          Instructions: 'Spark Code Interpreter - send natural language prompts to generate and execute PySpark code.'
       Tags:
         Environment: !Ref Environment
-  
-  # Note: Gateway Targets will be added separately via API or Console
-  # The Gateway provides an MCP endpoint that can be used to invoke the Spark Supervisor Agent
-  # Agent ARN: arn:aws:bedrock-agentcore:us-east-1:817323390093:runtime/spark_supervisor_agent-kSQUxI8Tqu
+
+  # Note: Internal Gateway (IAM auth) is created by scripts/deploy-all.sh
+  # CloudFormation doesn't support AWS_IAM authorizer type for BedrockAgentCore::Gateway
+  # The internal gateway is managed via boto3 in the deploy script
+
+  # Note: Gateway Targets are registered via scripts/register-gateway-targets.py
+  # External Gateway: ask-agent target (wrapper Lambda)
+  # Internal Gateway: execute-spark-on-emr, get-glue-table-schema, get-postgres-table-schema
   
   # ============================================================================
   # Lambda Functions
@@ -458,6 +462,7 @@ Resources:
           BEDROCK_MODEL: !Ref BedrockModel
           EMR_APP_ID: !Ref EMRServerlessApplication
           EMR_ROLE_ARN: !GetAtt EMRExecutionRole.Arn
+          ENVIRONMENT: !Ref Environment
       Code:
         ZipFile: |
           # Placeholder - will be updated by deployment script
@@ -566,207 +571,58 @@ Resources:
       FunctionName: !Ref SparkAgentWrapper
       Action: lambda:InvokeFunction
       Principal: bedrock-agentcore.amazonaws.com
-      SourceArn: !GetAtt SparkAgentCoreGateway.GatewayArn
 
   # ============================================================================
-  # MCP Tool Lambdas (one per tool, invoked via Gateway)
+  # MCP Tool Lambdas — managed by scripts/deploy-mcp-tools.sh (not CloudFormation)
   # ============================================================================
-
-  McpToolsRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub '${Environment}-spark-mcp-tools-role'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: lambda.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Policies:
-        - PolicyName: McpToolsPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - bedrock-agentcore:InvokeAgentRuntime
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - lambda:InvokeFunction
-                Resource: !GetAtt SparkOnLambda.Arn
-              - Effect: Allow
-                Action:
-                  - emr-serverless:StartJobRun
-                  - emr-serverless:GetJobRun
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - glue:GetTable
-                  - glue:GetDatabase
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - secretsmanager:GetSecretValue
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - s3:GetObject
-                  - s3:PutObject
-                  - s3:ListBucket
-                Resource:
-                  - !GetAtt SparkDataBucket.Arn
-                  - !Sub '${SparkDataBucket.Arn}/*'
-              - Effect: Allow
-                Action:
-                  - sts:GetCallerIdentity
-                Resource: '*'
-              - Effect: Allow
-                Action:
-                  - iam:PassRole
-                Resource: !GetAtt EMRExecutionRole.Arn
-
-  McpToolGenerateSparkCode:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub '${Environment}-spark-tool-generate-spark-code'
-      Runtime: python3.11
-      Handler: handler.lambda_handler
-      Role: !GetAtt McpToolsRole.Arn
-      Timeout: 300
-      MemorySize: 256
-      Code:
-        ZipFile: '# Placeholder - deployed by scripts/deploy-mcp-tools.sh'
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-
-  McpToolExecuteSparkOnLambda:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub '${Environment}-spark-tool-execute-spark-on-lambda'
-      Runtime: python3.11
-      Handler: handler.lambda_handler
-      Role: !GetAtt McpToolsRole.Arn
-      Timeout: 320
-      MemorySize: 256
-      Code:
-        ZipFile: '# Placeholder - deployed by scripts/deploy-mcp-tools.sh'
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-
-  McpToolExecuteSparkOnEmr:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub '${Environment}-spark-tool-execute-spark-on-emr'
-      Runtime: python3.11
-      Handler: handler.lambda_handler
-      Role: !GetAtt McpToolsRole.Arn
-      Timeout: 900
-      MemorySize: 256
-      Code:
-        ZipFile: '# Placeholder - deployed by scripts/deploy-mcp-tools.sh'
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-
-  McpToolGetGlueTableSchema:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub '${Environment}-spark-tool-get-glue-table-schema'
-      Runtime: python3.11
-      Handler: handler.lambda_handler
-      Role: !GetAtt McpToolsRole.Arn
-      Timeout: 30
-      MemorySize: 128
-      Code:
-        ZipFile: '# Placeholder - deployed by scripts/deploy-mcp-tools.sh'
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-
-  McpToolGetPostgresTableSchema:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub '${Environment}-spark-tool-get-postgres-table-schema'
-      Runtime: python3.11
-      Handler: handler.lambda_handler
-      Role: !GetAtt McpToolsRole.Arn
-      Timeout: 30
-      MemorySize: 256
-      Code:
-        ZipFile: '# Placeholder - deployed by scripts/deploy-mcp-tools.sh'
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-
-  McpToolFetchSparkResults:
-    Type: AWS::Lambda::Function
-    Properties:
-      FunctionName: !Sub '${Environment}-spark-tool-fetch-spark-results'
-      Runtime: python3.11
-      Handler: handler.lambda_handler
-      Role: !GetAtt McpToolsRole.Arn
-      Timeout: 60
-      MemorySize: 256
-      Code:
-        ZipFile: '# Placeholder - deployed by scripts/deploy-mcp-tools.sh'
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
+  # The 6 MCP tool Lambdas are created/updated by deploy-mcp-tools.sh to avoid
+  # conflicts with CloudFormation (Lambdas may already exist from prior deployments).
+  # Lambda names: ${Environment}-spark-tool-{generate-spark-code,execute-spark-on-lambda,
+  #   execute-spark-on-emr,get-glue-table-schema,get-postgres-table-schema,fetch-spark-results}
 
   # Gateway permissions to invoke MCP tool Lambdas
+  # Using bedrock-agentcore principal (both gateways can invoke)
   McpToolCodegenGatewayPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref McpToolGenerateSparkCode
+      FunctionName: !Sub '${Environment}-spark-tool-generate-spark-code'
       Action: lambda:InvokeFunction
       Principal: bedrock-agentcore.amazonaws.com
-      SourceArn: !GetAtt SparkAgentCoreGateway.GatewayArn
 
   McpToolExecLambdaGatewayPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref McpToolExecuteSparkOnLambda
+      FunctionName: !Sub '${Environment}-spark-tool-execute-spark-on-lambda'
       Action: lambda:InvokeFunction
       Principal: bedrock-agentcore.amazonaws.com
-      SourceArn: !GetAtt SparkAgentCoreGateway.GatewayArn
 
   McpToolExecEmrGatewayPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref McpToolExecuteSparkOnEmr
+      FunctionName: !Sub '${Environment}-spark-tool-execute-spark-on-emr'
       Action: lambda:InvokeFunction
       Principal: bedrock-agentcore.amazonaws.com
-      SourceArn: !GetAtt SparkAgentCoreGateway.GatewayArn
 
   McpToolGlueSchemaGatewayPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref McpToolGetGlueTableSchema
+      FunctionName: !Sub '${Environment}-spark-tool-get-glue-table-schema'
       Action: lambda:InvokeFunction
       Principal: bedrock-agentcore.amazonaws.com
-      SourceArn: !GetAtt SparkAgentCoreGateway.GatewayArn
 
   McpToolPgSchemaGatewayPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref McpToolGetPostgresTableSchema
+      FunctionName: !Sub '${Environment}-spark-tool-get-postgres-table-schema'
       Action: lambda:InvokeFunction
       Principal: bedrock-agentcore.amazonaws.com
-      SourceArn: !GetAtt SparkAgentCoreGateway.GatewayArn
 
   McpToolFetchResultsGatewayPermission:
     Type: AWS::Lambda::Permission
     Properties:
-      FunctionName: !Ref McpToolFetchSparkResults
+      FunctionName: !Sub '${Environment}-spark-tool-fetch-spark-results'
       Action: lambda:InvokeFunction
       Principal: bedrock-agentcore.amazonaws.com
-      SourceArn: !GetAtt SparkAgentCoreGateway.GatewayArn
 
   # ============================================================================
   # EMR Serverless Application
@@ -919,15 +775,13 @@ Outputs:
   GatewayTargetInstructions:
     Description: Gateway Target registration instructions
     Value: !Sub |
-      MCP Tool targets are registered via scripts/register-gateway-targets.py
+      Targets are registered via: python3 scripts/register-gateway-targets.py
       
-      6 MCP tool targets:
-        - generate-spark-code -> ${Environment}-spark-tool-generate-spark-code
-        - execute-spark-on-lambda -> ${Environment}-spark-tool-execute-spark-on-lambda
-        - execute-spark-on-emr -> ${Environment}-spark-tool-execute-spark-on-emr
-        - get-glue-table-schema -> ${Environment}-spark-tool-get-glue-table-schema
-        - get-postgres-table-schema -> ${Environment}-spark-tool-get-postgres-table-schema
-        - fetch-spark-results -> ${Environment}-spark-tool-fetch-spark-results
+      External Gateway (Cognito JWT): ${SparkAgentCoreGateway}
+        - ask-agent → ${Environment}-spark-agent-wrapper
       
-      Register: python3 scripts/register-gateway-targets.py
+      Internal Gateway (IAM): Created by deploy-all.sh (${Environment}-spark-internal-gateway)
+        - execute-spark-on-emr → ${Environment}-spark-tool-execute-spark-on-emr
+        - get-glue-table-schema → ${Environment}-spark-tool-get-glue-table-schema
+        - get-postgres-table-schema → ${Environment}-spark-tool-get-postgres-table-schema
 

@@ -84,9 +84,10 @@ function App() {
 
     try {
       const s3InputPath = uploadedCsv ? uploadedCsv.s3_path : null;
+      const s3SamplePath = uploadedCsv ? uploadedCsv.s3_sample_path : null;
 
       const response = await generateCode(
-        prompt, sessionId, s3InputPath,
+        prompt, sessionId, s3InputPath, s3SamplePath,
         selectedTables.length > 0 ? selectedTables : null,
         selectedPostgresTables.length > 0 ? selectedPostgresTables : null,
         executionEngine

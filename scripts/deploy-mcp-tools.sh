@@ -30,7 +30,7 @@ TOOLS=(
     "generate-spark-code:generate-spark-code:300:256"
     "execute-spark-on-lambda:execute-spark-on-lambda:320:256"
     "execute-spark-on-emr:execute-spark-on-emr:900:256"
-    "get-glue-table-schema:get-glue-table-schema:30:128"
+    "get-glue-table-schema:get-glue-table-schema:60:256"
     "get-postgres-table-schema:get-postgres-table-schema:30:256"
     "fetch-spark-results:fetch-spark-results:60:256"
 )

@@ -1,211 +1,206 @@
 #!/usr/bin/env python3
-"""Register MCP tool Lambda functions as Gateway targets on AgentCore Gateway."""
+"""Register MCP tool targets on both Gateways.
+
+External Gateway (Cognito JWT): ask-agent → wrapper Lambda
+Internal Gateway (IAM): cold-path tools (EMR, Glue schema, Postgres schema)
+"""
 
 import boto3
 import json
+import os
+import time
 
-REGION = "us-east-1"
-ACCOUNT_ID = "914787431788"
-ENVIRONMENT = "dev"
-GATEWAY_ID = "dev-spark-gateway-qmofb4jgze"
+REGION = boto3.session.Session().region_name or "us-east-1"
+ACCOUNT_ID = boto3.client("sts").get_caller_identity()["Account"]
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "dev")
+
+# Get Gateway IDs from CloudFormation
+cfn = boto3.client("cloudformation", region_name=REGION)
+stack = cfn.describe_stacks(StackName=f"{ENVIRONMENT}-spark-complete-stack")
+outputs = {o["OutputKey"]: o["OutputValue"] for o in stack["Stacks"][0]["Outputs"]}
+
+EXTERNAL_GATEWAY_ID = outputs["AgentCoreGatewayId"]
+
+# Find internal Gateway by name (created by deploy-all.sh, not CloudFormation)
+INTERNAL_GATEWAY_ID = ""
+try:
+    gateways = client.list_gateways()
+    internal_name = f"{ENVIRONMENT}-spark-internal-gateway"
+    for gw in gateways.get("items", []):
+        if gw["name"] == internal_name:
+            INTERNAL_GATEWAY_ID = gw["gatewayId"]
+            break
+except Exception:
+    pass
+
+print(f"Account: {ACCOUNT_ID}, Region: {REGION}, Environment: {ENVIRONMENT}")
+print(f"External Gateway: {EXTERNAL_GATEWAY_ID}")
+print(f"Internal Gateway: {INTERNAL_GATEWAY_ID}")
+print()
 
 client = boto3.client("bedrock-agentcore-control", region_name=REGION)
 
 
-def make_tool(name, description, properties, required):
+def make_tool(name, desc, props, required):
     return {
         "name": name,
-        "description": description,
-        "inputSchema": {
-            "type": "object",
-            "properties": properties,
-            "required": required,
-        },
+        "description": desc,
+        "inputSchema": {"type": "object", "properties": props, "required": required},
     }
 
 
-TARGETS = [
-    {
-        "name": "generate-spark-code",
-        "description": "Generate PySpark code from a natural language prompt using the Code Generation Agent",
-        "lambda_function": f"{ENVIRONMENT}-spark-tool-generate-spark-code",
-        "tools": [
-            make_tool(
-                "generate_spark_code",
-                "Generate PySpark code from a natural language prompt",
-                {
-                    "prompt": {"type": "string", "description": "Natural language query"},
-                    "session_id": {"type": "string", "description": "Session ID"},
-                    "s3_input_path": {"type": "string", "description": "S3 input CSV path"},
-                    "s3_output_path": {"type": "string", "description": "S3 output path"},
-                    "model_id": {"type": "string", "description": "Bedrock model ID"},
-                    "code_gen_agent_arn": {"type": "string", "description": "Code Gen Agent ARN"},
-                    "region": {"type": "string", "description": "AWS region"},
-                },
-                ["prompt", "session_id", "model_id", "code_gen_agent_arn"],
-            )
-        ],
-    },
-    {
-        "name": "execute-spark-on-lambda",
-        "description": "Execute validated PySpark code on AWS Lambda",
-        "lambda_function": f"{ENVIRONMENT}-spark-tool-execute-spark-on-lambda",
-        "tools": [
-            make_tool(
-                "execute_spark_on_lambda",
-                "Execute validated PySpark code on Spark-on-Lambda",
-                {
-                    "spark_code": {"type": "string", "description": "Validated PySpark code"},
-                    "s3_output_path": {"type": "string", "description": "S3 output path"},
-                    "lambda_function": {"type": "string", "description": "Spark Lambda name"},
-                    "s3_bucket": {"type": "string", "description": "S3 bucket"},
-                    "region": {"type": "string", "description": "AWS region"},
-                },
-                ["spark_code", "s3_output_path", "lambda_function", "s3_bucket"],
-            )
-        ],
-    },
-    {
-        "name": "execute-spark-on-emr",
-        "description": "Execute validated PySpark code on EMR Serverless",
-        "lambda_function": f"{ENVIRONMENT}-spark-tool-execute-spark-on-emr",
-        "tools": [
+def clear_targets(gateway_id):
+    """Delete all existing targets from a gateway."""
+    resp = client.list_gateway_targets(gatewayIdentifier=gateway_id)
+    items = resp.get("items", [])
+    if not items:
+        return
+    print(f"  Clearing {len(items)} existing targets...")
+    for t in items:
+        try:
+            client.delete_gateway_target(gatewayIdentifier=gateway_id, targetId=t["targetId"])
+        except Exception:
+            pass
+    time.sleep(5)
+
+
+def register_target(gateway_id, name, description, lambda_name, tools):
+    """Register a single target on a gateway."""
+    lambda_arn = f"arn:aws:lambda:{REGION}:{ACCOUNT_ID}:function:{lambda_name}"
+    print(f"  Registering: {name} → {lambda_name}")
+    try:
+        resp = client.create_gateway_target(
+            gatewayIdentifier=gateway_id,
+            name=name,
+            description=description,
+            targetConfiguration={
+                "mcp": {
+                    "lambda": {
+                        "lambdaArn": lambda_arn,
+                        "toolSchema": {"inlinePayload": tools},
+                    }
+                }
+            },
+            credentialProviderConfigurations=[
+                {"credentialProviderType": "GATEWAY_IAM_ROLE"}
+            ],
+        )
+        print(f"    OK: {resp.get('targetId')} ({resp.get('status')})")
+    except Exception as e:
+        print(f"    Error: {e}")
+
+
+# ============================================================================
+# External Gateway (Cognito JWT) — ask-agent only
+# ============================================================================
+print("External Gateway (Cognito JWT):")
+clear_targets(EXTERNAL_GATEWAY_ID)
+
+register_target(
+    EXTERNAL_GATEWAY_ID,
+    "ask-agent",
+    "Spark Code Interpreter - send natural language prompts, get PySpark code and results",
+    f"{ENVIRONMENT}-spark-agent-wrapper",
+    [
+        make_tool(
+            "ask_agent",
+            "Ask the Spark Code Interpreter a natural language question",
+            {
+                "prompt": {"type": "string", "description": "Natural language query"},
+                "s3_input_path": {"type": "string", "description": "Optional S3 CSV path"},
+                "execution_engine": {"type": "string", "description": "auto, lambda, or emr"},
+            },
+            ["prompt"],
+        )
+    ],
+)
+print()
+
+# ============================================================================
+# Internal Gateway (IAM) — cold-path tools
+# ============================================================================
+if INTERNAL_GATEWAY_ID:
+    print("Internal Gateway (IAM):")
+    clear_targets(INTERNAL_GATEWAY_ID)
+
+    register_target(
+        INTERNAL_GATEWAY_ID,
+        "execute-spark-on-emr",
+        "Execute validated PySpark code on EMR Serverless",
+        f"{ENVIRONMENT}-spark-tool-execute-spark-on-emr",
+        [
             make_tool(
                 "execute_spark_on_emr",
-                "Execute validated PySpark code on EMR Serverless",
+                "Execute PySpark on EMR Serverless",
                 {
-                    "spark_code": {"type": "string", "description": "Validated PySpark code"},
-                    "s3_output_path": {"type": "string", "description": "S3 output path"},
-                    "s3_bucket": {"type": "string", "description": "S3 bucket"},
-                    "session_id": {"type": "string", "description": "Session ID"},
-                    "emr_application_id": {"type": "string", "description": "EMR app ID"},
-                    "region": {"type": "string", "description": "AWS region"},
+                    "spark_code": {"type": "string"},
+                    "s3_output_path": {"type": "string"},
+                    "s3_bucket": {"type": "string"},
+                    "session_id": {"type": "string"},
+                    "emr_application_id": {"type": "string"},
+                    "region": {"type": "string"},
                 },
                 ["spark_code", "s3_output_path", "s3_bucket", "session_id", "emr_application_id"],
             )
         ],
-    },
-    {
-        "name": "get-glue-table-schema",
-        "description": "Fetch schema for an AWS Glue table",
-        "lambda_function": f"{ENVIRONMENT}-spark-tool-get-glue-table-schema",
-        "tools": [
+    )
+
+    register_target(
+        INTERNAL_GATEWAY_ID,
+        "get-glue-table-schema",
+        "Fetch schema for an AWS Glue table",
+        f"{ENVIRONMENT}-spark-tool-get-glue-table-schema",
+        [
             make_tool(
                 "get_glue_table_schema",
-                "Fetch detailed schema for an AWS Glue table",
+                "Fetch Glue table schema",
                 {
-                    "database_name": {"type": "string", "description": "Glue database name"},
-                    "table_name": {"type": "string", "description": "Glue table name"},
-                    "region": {"type": "string", "description": "AWS region"},
+                    "database_name": {"type": "string"},
+                    "table_name": {"type": "string"},
+                    "region": {"type": "string"},
                 },
                 ["database_name", "table_name"],
             )
         ],
-    },
-    {
-        "name": "get-postgres-table-schema",
-        "description": "Fetch schema for a PostgreSQL table via JDBC",
-        "lambda_function": f"{ENVIRONMENT}-spark-tool-get-postgres-table-schema",
-        "tools": [
+    )
+
+    register_target(
+        INTERNAL_GATEWAY_ID,
+        "get-postgres-table-schema",
+        "Fetch schema for a PostgreSQL table",
+        f"{ENVIRONMENT}-spark-tool-get-postgres-table-schema",
+        [
             make_tool(
                 "get_postgres_table_schema",
-                "Fetch schema for a PostgreSQL table by querying information_schema",
+                "Fetch PostgreSQL table schema",
                 {
-                    "jdbc_url": {"type": "string", "description": "PostgreSQL JDBC URL"},
-                    "secret_arn": {"type": "string", "description": "Secrets Manager ARN"},
-                    "database": {"type": "string", "description": "Database name"},
-                    "schema": {"type": "string", "description": "Schema name"},
-                    "table": {"type": "string", "description": "Table name"},
-                    "region": {"type": "string", "description": "AWS region"},
+                    "jdbc_url": {"type": "string"},
+                    "secret_arn": {"type": "string"},
+                    "database": {"type": "string"},
+                    "schema": {"type": "string"},
+                    "table": {"type": "string"},
+                    "region": {"type": "string"},
                 },
                 ["jdbc_url", "secret_arn", "database", "schema", "table"],
             )
         ],
-    },
-    {
-        "name": "fetch-spark-results",
-        "description": "Fetch Spark execution results from S3",
-        "lambda_function": f"{ENVIRONMENT}-spark-tool-fetch-spark-results",
-        "tools": [
-            make_tool(
-                "fetch_spark_results",
-                "Fetch Spark execution results from S3 output path",
-                {
-                    "s3_output_path": {"type": "string", "description": "S3 results path"},
-                    "s3_bucket": {"type": "string", "description": "S3 bucket name"},
-                    "max_rows": {"type": "number", "description": "Max rows to return"},
-                    "region": {"type": "string", "description": "AWS region"},
-                },
-                ["s3_output_path", "s3_bucket"],
-            )
-        ],
-    },
-]
+    )
+    print()
+else:
+    print("Internal Gateway not found in stack outputs — skipping cold-path targets")
+    print()
 
+# ============================================================================
+# Verify
+# ============================================================================
+print("Final state:")
+print(f"  External Gateway ({EXTERNAL_GATEWAY_ID}):")
+resp = client.list_gateway_targets(gatewayIdentifier=EXTERNAL_GATEWAY_ID)
+for t in resp.get("items", []):
+    print(f"    {t['name']}: {t['targetId']} ({t['status']})")
 
-def register_targets():
-    print(f"Registering {len(TARGETS)} MCP tool targets on Gateway: {GATEWAY_ID}\n")
-
-    created_ids = []
-    for target_def in TARGETS:
-        name = target_def["name"]
-        lambda_arn = f"arn:aws:lambda:{REGION}:{ACCOUNT_ID}:function:{target_def['lambda_function']}"
-        print(f"Registering: {name}")
-        print(f"  Lambda: {lambda_arn}")
-
-        try:
-            response = client.create_gateway_target(
-                gatewayIdentifier=GATEWAY_ID,
-                name=name,
-                description=target_def["description"],
-                targetConfiguration={
-                    "mcp": {
-                        "lambda": {
-                            "lambdaArn": lambda_arn,
-                            "toolSchema": {
-                                "inlinePayload": target_def["tools"],
-                            },
-                        }
-                    }
-                },
-                credentialProviderConfigurations=[
-                    {
-                        "credentialProviderType": "GATEWAY_IAM_ROLE",
-                    }
-                ],
-            )
-            tid = response.get("targetId", "unknown")
-            status = response.get("status", "unknown")
-            print(f"  OK - ID: {tid}, Status: {status}")
-            created_ids.append(tid)
-        except client.exceptions.ConflictException:
-            print("  SKIP - Already exists")
-        except Exception as e:
-            print(f"  FAIL - {e}")
-        print()
-
-    # Sync targets if any were created
-    if created_ids:
-        print("Synchronizing gateway targets...")
-        try:
-            client.synchronize_gateway_targets(
-                gatewayIdentifier=GATEWAY_ID,
-                targetIdList=created_ids,
-            )
-            print("OK - Sync initiated")
-        except Exception as e:
-            print(f"Sync note: {e}")
-        print()
-
-    # List all targets
-    print("All registered targets:")
-    try:
-        response = client.list_gateway_targets(gatewayIdentifier=GATEWAY_ID)
-        for t in response.get("targets", []):
-            print(f"  {t.get('name')}: {t.get('targetId')} ({t.get('status')})")
-    except Exception as e:
-        print(f"  Error: {e}")
-
-
-if __name__ == "__main__":
-    register_targets()
+if INTERNAL_GATEWAY_ID:
+    print(f"  Internal Gateway ({INTERNAL_GATEWAY_ID}):")
+    resp = client.list_gateway_targets(gatewayIdentifier=INTERNAL_GATEWAY_ID)
+    for t in resp.get("items", []):
+        print(f"    {t['name']}: {t['targetId']} ({t['status']})")

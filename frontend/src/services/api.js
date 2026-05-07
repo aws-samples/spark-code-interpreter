@@ -1,6 +1,6 @@
 const API_BASE_URL = 'http://localhost:8000';
 
-export const generateCode = async (prompt, sessionId, s3InputPath = null, selectedTables = null, selectedPostgresTables = null, executionEngine = 'auto') => {
+export const generateCode = async (prompt, sessionId, s3InputPath = null, s3SamplePath = null, selectedTables = null, selectedPostgresTables = null, executionEngine = 'auto') => {
   const response = await fetch(`${API_BASE_URL}/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -8,6 +8,7 @@ export const generateCode = async (prompt, sessionId, s3InputPath = null, select
       prompt,
       session_id: sessionId,
       s3_input_path: s3InputPath,
+      s3_sample_path: s3SamplePath,
       selected_tables: selectedTables,
       selected_postgres_tables: selectedPostgresTables,
       execution_engine: executionEngine,

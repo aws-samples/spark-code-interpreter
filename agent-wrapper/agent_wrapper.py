@@ -65,6 +65,27 @@ def lambda_handler(event, context):
         s3_session_path = f"{session_id}"
         s3_output_path = f"s3://{s3_bucket}/{session_id}/output/"
         
+        # Extract s3_input_path and s3_sample_path from event
+        s3_input_path = event.get('s3_input_path') or (body.get('s3_input_path') if 'body' in event else None)
+        s3_sample_path = event.get('s3_sample_path') or (body.get('s3_sample_path') if 'body' in event else None)
+        
+        # If s3_input_path provided without sample, extract 200 rows
+        if s3_input_path and not s3_sample_path:
+            try:
+                s3_client = boto3.client('s3', region_name='us-east-1')
+                input_bucket = s3_input_path.replace('s3://', '').split('/')[0]
+                input_key = '/'.join(s3_input_path.replace('s3://', '').split('/')[1:])
+                obj = s3_client.get_object(Bucket=input_bucket, Key=input_key, Range='bytes=0-102400')
+                content = obj['Body'].read().decode('utf-8', errors='ignore')
+                lines = content.strip().split('\n')[:201]
+                sample_content = '\n'.join(lines)
+                sample_key = f"{session_id}/samples/input_sample.csv"
+                s3_client.put_object(Bucket=s3_bucket, Key=sample_key, Body=sample_content.encode('utf-8'))
+                s3_sample_path = f"s3://{s3_bucket}/{sample_key}"
+                logger.info(f"Extracted sample: {s3_sample_path}")
+            except Exception as e:
+                logger.warning(f"Could not extract sample: {e}")
+        
         # Get Lambda ARN and extract function name
         lambda_arn = os.environ.get('SPARK_LAMBDA_ARN', 'arn:aws:lambda:us-east-1:817323390093:function:dev-spark-on-lambda')
         lambda_function = lambda_arn.split(':')[-1] if lambda_arn else 'dev-spark-on-lambda'
@@ -73,8 +94,11 @@ def lambda_handler(event, context):
         payload_dict = {
             'prompt': prompt,
             'session_id': session_id,
+            's3_input_path': s3_input_path,
+            's3_sample_path': s3_sample_path,
             's3_output_path': s3_output_path,  # Tell agent where to write results
             'config': {
+                'environment': os.environ.get('ENVIRONMENT', 'dev'),
                 'model_id': 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
                 'bedrock_model': 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
                 'bedrock_region': 'us-east-1',
@@ -83,6 +107,7 @@ def lambda_handler(event, context):
                 's3_bucket': s3_bucket,
                 's3_output_path': s3_output_path,
                 'code_gen_agent_arn': os.environ.get('CODE_GEN_ARN', 'arn:aws:bedrock-agentcore:us-east-1:817323390093:runtime/ray_code_interpreter-FKoWFR2k9A'),
+                'internal_gateway_url': os.environ.get('INTERNAL_GATEWAY_URL', ''),
                 'emr_application_id': os.environ.get('EMR_APP_ID', ''),
                 'emr_execution_role_arn': os.environ.get('EMR_ROLE_ARN', ''),
                 'region': 'us-east-1',

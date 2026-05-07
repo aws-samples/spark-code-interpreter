@@ -13,8 +13,10 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 REGION=${AWS_REGION:-us-east-1}
-BUCKET="spark-data-914787431788-us-east-1"
-WRAPPER_FUNCTION="dev-spark-agent-wrapper"
+ENVIRONMENT=${ENVIRONMENT:-dev}
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --no-cli-pager)
+BUCKET="spark-data-${ACCOUNT_ID}-${REGION}"
+WRAPPER_FUNCTION="${ENVIRONMENT}-spark-agent-wrapper"
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}S3 Operations Test Suite${NC}"

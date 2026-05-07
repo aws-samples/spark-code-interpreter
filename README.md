@@ -130,6 +130,8 @@ Wrapper Lambda
 
 Config is passed as parameters in each MCP tool call (not environment variables), making the tools stateless and reusable.
 
+> **Note:** The supervisor agent invokes MCP tool Lambdas directly via `lambda:InvokeFunction` for lower latency. The AgentCore Gateway exposes the same tools for external MCP clients (e.g., Claude Desktop, Cursor) but is not in the supervisor's execution path.
+
 ---
 
 ## Prerequisites

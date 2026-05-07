@@ -4,6 +4,7 @@ Execute validated PySpark code on EMR Serverless.
 
 import json
 import time
+import os
 import boto3
 
 
@@ -44,7 +45,9 @@ def lambda_handler(event, context):
         if not emr_execution_role_arn:
             sts_client = boto3.client('sts')
             account_id = sts_client.get_caller_identity()['Account']
-            emr_execution_role_arn = f"arn:aws:iam::{account_id}:role/EMRServerlessExecutionRole"
+            # Use the CloudFormation-created role name pattern
+            env = os.environ.get('ENVIRONMENT', 'dev')
+            emr_execution_role_arn = f"arn:aws:iam::{account_id}:role/{env}-spark-emr-execution-role"
 
         # Start EMR job
         response = emr_client.start_job_run(

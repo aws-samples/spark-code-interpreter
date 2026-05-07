@@ -60,7 +60,7 @@ echo ""
 echo -e "${YELLOW}Checking bedrock-agentcore-starter-toolkit...${NC}"
 if ! python3 -c "import bedrock_agentcore_starter_toolkit" 2>/dev/null; then
     echo "Installing bedrock-agentcore-starter-toolkit..."
-    pip3 install bedrock-agentcore-starter-toolkit
+    pip3 install --break-system-packages bedrock-agentcore-starter-toolkit
 fi
 echo -e "${GREEN}✅ Toolkit ready${NC}"
 echo ""
@@ -328,6 +328,124 @@ else
 fi
 
 echo -e "${GREEN}✅ CloudFormation stack deployed${NC}"
+echo ""
+
+# Update deployment config with stack outputs
+echo -e "${YELLOW}Updating deployment config with stack outputs...${NC}"
+INTERNAL_GW_URL=$(aws cloudformation describe-stacks \
+    --stack-name $STACK_NAME \
+    --region $REGION \
+    --query 'Stacks[0].Outputs[?OutputKey==`InternalGatewayUrl`].OutputValue' \
+    --output text \
+    --no-cli-pager 2>/dev/null || echo "")
+
+S3_BUCKET=$(aws cloudformation describe-stacks \
+    --stack-name $STACK_NAME \
+    --region $REGION \
+    --query 'Stacks[0].Outputs[?OutputKey==`SparkDataBucketName`].OutputValue' \
+    --output text \
+    --no-cli-pager 2>/dev/null || echo "")
+
+LAMBDA_FN=$(aws cloudformation describe-stacks \
+    --stack-name $STACK_NAME \
+    --region $REGION \
+    --query 'Stacks[0].Outputs[?OutputKey==`SparkLambdaFunctionName`].OutputValue' \
+    --output text \
+    --no-cli-pager 2>/dev/null || echo "")
+
+EMR_APP_ID=$(aws cloudformation describe-stacks \
+    --stack-name $STACK_NAME \
+    --region $REGION \
+    --query 'Stacks[0].Outputs[?OutputKey==`EMRApplicationId`].OutputValue' \
+    --output text \
+    --no-cli-pager 2>/dev/null || echo "")
+
+EMR_ROLE=$(aws cloudformation describe-stacks \
+    --stack-name $STACK_NAME \
+    --region $REGION \
+    --query 'Stacks[0].Outputs[?OutputKey==`EMRExecutionRoleArn`].OutputValue' \
+    --output text \
+    --no-cli-pager 2>/dev/null || echo "")
+
+# Merge into deployment config
+python3 -c "
+import json
+with open('$CONFIG_FILE', 'r') as f:
+    config = json.load(f)
+config.setdefault('spark', {}).update({
+    's3_bucket': '$S3_BUCKET',
+    'lambda_function': '$LAMBDA_FN',
+    'emr_application_id': '$EMR_APP_ID',
+    'emr_execution_role_arn': '$EMR_ROLE',
+    'internal_gateway_url': '$INTERNAL_GW_URL',
+})
+config.setdefault('global', {}).update({
+    'bedrock_model': 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+    'bedrock_region': '$REGION',
+})
+with open('$CONFIG_FILE', 'w') as f:
+    json.dump(config, f, indent=2)
+print('Config updated with stack outputs')
+"
+echo -e "${GREEN}✅ Deployment config updated${NC}"
+echo ""
+
+# Create internal Gateway (IAM auth) if it doesn't exist
+echo -e "${YELLOW}Creating internal Gateway (IAM auth) if needed...${NC}"
+python3 -c "
+import boto3, json
+
+client = boto3.client('bedrock-agentcore-control', region_name='$REGION')
+env = '$ENVIRONMENT'
+gw_name = f'{env}-spark-internal-gateway'
+
+# Check if it already exists
+try:
+    gateways = client.list_gateways()
+    existing = [g for g in gateways.get('items', []) if g['name'] == gw_name]
+    if existing:
+        gw_id = existing[0]['gatewayId']
+        gw_url = existing[0].get('gatewayUrl', '')
+        print(f'Internal Gateway already exists: {gw_id}')
+    else:
+        # Get gateway role ARN from external gateway
+        cfn = boto3.client('cloudformation', region_name='$REGION')
+        stack = cfn.describe_stacks(StackName='$STACK_NAME')
+        outputs = {o['OutputKey']: o['OutputValue'] for o in stack['Stacks'][0]['Outputs']}
+        
+        # Get role ARN from the GatewayRole
+        iam = boto3.client('iam')
+        role = iam.get_role(RoleName=f'{env}-spark-gateway-role')
+        role_arn = role['Role']['Arn']
+        
+        response = client.create_gateway(
+            name=gw_name,
+            description='Internal Gateway for supervisor agent cold-path MCP tool calls (IAM auth)',
+            roleArn=role_arn,
+            protocolType='MCP',
+            authorizerType='AWS_IAM',
+            protocolConfiguration={'mcp': {'instructions': 'Internal gateway for Spark supervisor agent MCP tools.'}},
+        )
+        gw_id = response['gatewayId']
+        print(f'Created internal Gateway: {gw_id}')
+        
+        import time
+        time.sleep(10)
+        gw_info = client.get_gateway(gatewayIdentifier=gw_id)
+        gw_url = gw_info.get('gatewayUrl', '')
+    
+    # Update deployment config with internal gateway URL
+    if gw_url:
+        with open('$CONFIG_FILE', 'r') as f:
+            config = json.load(f)
+        config.setdefault('spark', {})['internal_gateway_url'] = gw_url
+        with open('$CONFIG_FILE', 'w') as f:
+            json.dump(config, f, indent=2)
+        print(f'Config updated with internal gateway URL')
+except Exception as e:
+    print(f'Warning: Could not create internal gateway: {e}')
+"
+echo -e "${GREEN}✅ Internal Gateway ready${NC}"
 echo ""
 
 # ============================================================================

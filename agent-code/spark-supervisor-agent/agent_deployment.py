@@ -110,7 +110,9 @@ if execution_role_arn and role_name:
                 "Action": ["lambda:InvokeFunction"],
                 "Resource": [
                     f"arn:aws:lambda:{region}:{account_id}:function:dev-spark-on-lambda",
-                    f"arn:aws:lambda:{region}:{account_id}:function:prod-spark-on-lambda"
+                    f"arn:aws:lambda:{region}:{account_id}:function:prod-spark-on-lambda",
+                    f"arn:aws:lambda:{region}:{account_id}:function:dev-spark-tool-*",
+                    f"arn:aws:lambda:{region}:{account_id}:function:prod-spark-tool-*"
                 ]
             },
             {
@@ -132,6 +134,12 @@ if execution_role_arn and role_name:
                 "Effect": "Allow",
                 "Action": ["bedrock-agentcore:InvokeAgentRuntime"],
                 "Resource": [f"arn:aws:bedrock-agentcore:{region}:{account_id}:runtime/*"]
+            },
+            {
+                "Sid": "InvokeGateway",
+                "Effect": "Allow",
+                "Action": ["bedrock-agentcore:InvokeGateway"],
+                "Resource": [f"arn:aws:bedrock-agentcore:{region}:{account_id}:gateway/*"]
             },
             {
                 "Sid": "EMRServerlessAccess",

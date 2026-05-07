@@ -4,7 +4,8 @@
     "s3_bucket": "spark-data-914787431788-us-east-1",
     "lambda_function": "dev-spark-on-lambda",
     "emr_application_id": "00g3oapr87misc09",
-    "emr_execution_role_arn": "arn:aws:iam::914787431788:role/dev-spark-emr-execution-role"
+    "emr_execution_role_arn": "arn:aws:iam::914787431788:role/dev-spark-emr-execution-role",
+    "internal_gateway_url": "https://dev-spark-internal-gateway-utq9arks9m.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp"
   },
   "global": {
     "code_gen_agent_arn": "arn:aws:bedrock-agentcore:us-east-1:914787431788:runtime/spark_code_generator-Q8EJ8p53TZ",

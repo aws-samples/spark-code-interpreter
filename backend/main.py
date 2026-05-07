@@ -45,6 +45,7 @@ class GenerateRequest(BaseModel):
     prompt: str
     session_id: Optional[str] = None
     s3_input_path: Optional[str] = None
+    s3_sample_path: Optional[str] = None
     selected_tables: Optional[List[dict]] = None
     selected_postgres_tables: Optional[List[dict]] = None
     execution_engine: Optional[str] = "auto"
@@ -137,6 +138,7 @@ async def generate_code(request: GenerateRequest):
         "prompt": request.prompt,
         "session_id": session_id,
         "s3_input_path": request.s3_input_path,
+        "s3_sample_path": request.s3_sample_path,
         "s3_output_path": s3_output_path,
         "selected_tables": request.selected_tables,
         "selected_postgres_tables": request.selected_postgres_tables,
@@ -150,6 +152,7 @@ async def generate_code(request: GenerateRequest):
             "s3_bucket": s3_bucket,
             "s3_output_path": s3_output_path,
             "code_gen_agent_arn": spark.get("code_gen_agent_arn") or config.get("global", {}).get("code_gen_agent_arn"),
+            "internal_gateway_url": spark.get("internal_gateway_url", ""),
             "emr_application_id": spark.get("emr_application_id", ""),
             "emr_execution_role_arn": spark.get("emr_execution_role_arn", ""),
             "region": config.get("global", {}).get("bedrock_region", "us-east-1"),
@@ -229,6 +232,7 @@ async def execute_code(request: ExecuteRequest):
             "s3_bucket": s3_bucket,
             "s3_output_path": s3_output_path,
             "code_gen_agent_arn": spark.get("code_gen_agent_arn") or config.get("global", {}).get("code_gen_agent_arn"),
+            "internal_gateway_url": spark.get("internal_gateway_url", ""),
             "emr_application_id": spark.get("emr_application_id", ""),
             "emr_execution_role_arn": spark.get("emr_execution_role_arn", ""),
             "region": config.get("global", {}).get("bedrock_region", "us-east-1"),
@@ -277,7 +281,7 @@ async def execute_code(request: ExecuteRequest):
 
 @app.post("/upload-csv")
 async def upload_csv(request: CsvUploadRequest):
-    """Upload a CSV file to S3 for Spark processing."""
+    """Upload a CSV file to S3 and extract a 200-row sample for fast validation."""
     config = load_config()
     s3_bucket = config.get("spark", {}).get("s3_bucket", "")
     session_id = request.session_id or str(uuid.uuid4())
@@ -286,13 +290,30 @@ async def upload_csv(request: CsvUploadRequest):
     s3_path = f"s3://{s3_bucket}/{s3_key}"
 
     s3 = boto3.client("s3", region_name=config.get("global", {}).get("bedrock_region", "us-east-1"))
+
+    # Save full file
     s3.put_object(Bucket=s3_bucket, Key=s3_key, Body=request.content.encode("utf-8"))
 
-    # Generate preview (first 5 lines)
+    # Extract sample (header + 200 rows)
     lines = request.content.strip().split("\n")
+    sample_lines = lines[:201]  # header + 200 data rows
+    sample_content = "\n".join(sample_lines)
+    sample_key = f"{session_id}/samples/{request.filename}"
+    s3.put_object(Bucket=s3_bucket, Key=sample_key, Body=sample_content.encode("utf-8"))
+    s3_sample_path = f"s3://{s3_bucket}/{sample_key}"
+
+    # Preview (first 5 lines)
     preview = "\n".join(lines[:6])
 
-    return {"success": True, "s3_path": s3_path, "preview": preview, "filename": request.filename}
+    return {
+        "success": True,
+        "s3_path": s3_path,
+        "s3_sample_path": s3_sample_path,
+        "preview": preview,
+        "filename": request.filename,
+        "total_rows": len(lines) - 1,
+        "sample_rows": min(200, len(lines) - 1),
+    }
 
 
 # ---------------------------------------------------------------------------
