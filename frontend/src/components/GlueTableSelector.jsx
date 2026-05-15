@@ -20,7 +20,7 @@ const GlueTableSelector = ({ sessionId, onTablesSelected }) => {
       const response = await fetch('http://localhost:8000/glue/databases');
       const data = await response.json();
       console.log('Databases response:', data);
-      if (data.success) {
+      if (data.databases && data.databases.length > 0) {
         const dbOptions = data.databases.map(db => ({ label: db, value: db }));
         console.log('Database options:', dbOptions);
         setDatabases(dbOptions);
@@ -38,7 +38,7 @@ const GlueTableSelector = ({ sessionId, onTablesSelected }) => {
       setLoading(true);
       const response = await fetch(`http://localhost:8000/glue/tables/${database}`);
       const data = await response.json();
-      if (data.success) {
+      if (data.tables && data.tables.length > 0) {
         setTables(data.tables.map(t => ({
           label: t.name,
           value: t.name,
@@ -83,7 +83,7 @@ const GlueTableSelector = ({ sessionId, onTablesSelected }) => {
 
       const data = await response.json();
       if (data.success) {
-        onTablesSelected && onTablesSelected(data.selected_tables);
+        onTablesSelected && onTablesSelected(tableRefs);
       }
     } catch (err) {
       setError('Failed to select tables');

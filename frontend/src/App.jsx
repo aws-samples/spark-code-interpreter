@@ -162,7 +162,7 @@ function App() {
     setError(null);
     try {
       const response = await uploadCsvFile(file.name, file.content, sessionId);
-      setUploadedCsv({ filename: file.name, preview: response.preview, s3_path: response.s3_path });
+      setUploadedCsv({ filename: file.name, preview: response.preview, s3_path: response.s3_path, s3_sample_path: response.s3_sample_path });
       setSuccessMessage(`CSV "${file.name}" uploaded successfully!`);
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
