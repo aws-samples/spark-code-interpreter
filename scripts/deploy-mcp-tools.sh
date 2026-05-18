@@ -147,6 +147,10 @@ for TOOL_DEF in "${TOOLS[@]}"; do
     # Create deployment package
     PACKAGE_DIR=$(mktemp -d)
     cp "${TOOL_PATH}/handler.py" "${PACKAGE_DIR}/"
+    # Include shared progress helper if present
+    if [ -f "${PROJECT_ROOT}/mcp-tools/progress.py" ]; then
+        cp "${PROJECT_ROOT}/mcp-tools/progress.py" "${PACKAGE_DIR}/"
+    fi
 
     # Install dependencies if requirements.txt has non-boto3 packages
     if grep -qvE "^boto3$|^$" "${TOOL_PATH}/requirements.txt" 2>/dev/null; then

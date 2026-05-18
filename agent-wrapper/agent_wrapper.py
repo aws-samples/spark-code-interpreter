@@ -69,18 +69,23 @@ def lambda_handler(event, context):
         s3_input_path = event.get('s3_input_path') or (body.get('s3_input_path') if 'body' in event else None)
         s3_sample_path = event.get('s3_sample_path') or (body.get('s3_sample_path') if 'body' in event else None)
         
-        # If s3_input_path provided without sample, extract 200 rows
+        # If s3_input_path provided without sample, extract up to sample_size_mb bytes
         if s3_input_path and not s3_sample_path:
             try:
+                sample_size_mb = int(os.environ.get('SAMPLE_SIZE_MB', '100'))
+                sample_size_bytes = sample_size_mb * 1024 * 1024
                 s3_client = boto3.client('s3', region_name='us-east-1')
                 input_bucket = s3_input_path.replace('s3://', '').split('/')[0]
                 input_key = '/'.join(s3_input_path.replace('s3://', '').split('/')[1:])
-                obj = s3_client.get_object(Bucket=input_bucket, Key=input_key, Range='bytes=0-102400')
-                content = obj['Body'].read().decode('utf-8', errors='ignore')
-                lines = content.strip().split('\n')[:201]
-                sample_content = '\n'.join(lines)
+                obj = s3_client.get_object(Bucket=input_bucket, Key=input_key, Range=f'bytes=0-{sample_size_bytes - 1}')
+                sample_bytes = obj['Body'].read()
+                # Trim to last complete line if we hit the byte limit
+                if len(sample_bytes) == sample_size_bytes:
+                    last_newline = sample_bytes.rfind(b'\n')
+                    if last_newline > 0:
+                        sample_bytes = sample_bytes[:last_newline + 1]
                 sample_key = f"{session_id}/samples/input_sample.csv"
-                s3_client.put_object(Bucket=s3_bucket, Key=sample_key, Body=sample_content.encode('utf-8'))
+                s3_client.put_object(Bucket=s3_bucket, Key=sample_key, Body=sample_bytes)
                 s3_sample_path = f"s3://{s3_bucket}/{sample_key}"
                 logger.info(f"Extracted sample: {s3_sample_path}")
             except Exception as e:

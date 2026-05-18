@@ -20,12 +20,13 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
 1. **Authenticate** -- User authenticates via Amazon Cognito and receives a JWT token with the `spark-api/spark.execute` scope.
 2. **Natural Language Prompt** -- User asks a question via the React UI: *"Show me total sales by region over the last 12 months."*
 3. **Gateway Authorization** -- The AgentCore Gateway validates the JWT and evaluates **Cedar authorization policies** to confirm the caller is permitted to invoke the agent and access the requested data sources.
-4. **Bedrock Code Generation** -- Amazon Bedrock (Claude) generates a PySpark script based on the prompt, dataset schema, and historical context.
-5. **Cedar Policy Check** -- Before execution, Cedar policies verify the generated code does not contain destructive operations (DROP, DELETE, TRUNCATE) and that the target S3 buckets are project-tagged.
-6. **Fast Validation Loop** -- Generated code runs on **SoAL** to validate syntax and logic (~550 ms). Errors are fed back to the model for repair, iterating until success.
-7. **Production Execution** -- Once validated, the same PySpark script executes on **EMR Serverless** against the full dataset. The agent authenticates to downstream services (S3, Glue, Lambda, EMR) using scoped **IAM execution roles** -- no long-lived credentials.
-8. **Results & Visualization** -- Results are returned to the React UI as tables and charts.
-9. **Audit & Monitoring** -- Every step is captured by **CloudTrail** (agent invocations, model calls, data access). **EventBridge** rules fire alerts on failures, throttling, or unauthorized access attempts.
+4. **Sample Preparation** -- The supervisor agent extracts a 100 MB byte-range sample from the dataset (CSV, S3, or Glue). For CSVs, it reads the header row to extract column names and injects them into the code generation context, eliminating column-name mismatch errors.
+5. **Bedrock Code Generation** -- Amazon Bedrock (Claude) generates a PySpark script based on the prompt, exact column names from the sample schema, and data source context.
+6. **Cedar Policy Check** -- Before execution, Cedar policies verify the generated code does not contain destructive operations (DROP, DELETE, TRUNCATE) and that the target S3 buckets are project-tagged.
+7. **Fast Validation Loop** -- Generated code runs on **SoAL** against the 100 MB sample to validate syntax and logic. Errors are captured and fed back to the model for repair. On success, execution logs are skipped and results are fetched immediately.
+8. **Production Execution (large datasets only)** -- For datasets larger than 100 MB, the same validated PySpark script executes on **EMR Serverless** against the full dataset. Small datasets (≤ 100 MB) return the validation result directly — no second execution step.
+9. **Results & Visualization** -- Results are returned to the React UI as tables and charts.
+10. **Audit & Monitoring** -- Every step is captured by **CloudTrail** (agent invocations, model calls, data access). **EventBridge** rules fire alerts on failures, throttling, or unauthorized access attempts.
 
 ### Key Components
 
@@ -49,8 +50,10 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
 ## Features
 
 - **Natural language to PySpark** code generation using Amazon Bedrock Claude
-- **Iterative validation loop (SoAL)** -- error detection, model repair, re-validation
-- **Dual execution backends:** SoAL (fast, <500 MB) + EMR Serverless (scalable, MBs to PBs)
+- **Schema-aware code generation** -- CSV header row is extracted automatically and injected into the code generation prompt, eliminating column-name mismatch errors without requiring manual schema input
+- **2-phase execution:** validation on a 100 MB sample (SoAL) + full-dataset execution on EMR Serverless only when needed (datasets > 100 MB); small datasets return validation results directly
+- **Iterative validation loop (SoAL)** -- error detection, model repair, re-validation; execution logs only captured on failure to minimize latency on the success path
+- **Dual execution backends:** SoAL (fast, ≤ 100 MB sample) + EMR Serverless (scalable, MBs to PBs)
 - **React + FastAPI UI** with Cloudscape Design components:
   - Glue Data Catalog browsing and table selection
   - PostgreSQL connection management and table selection
@@ -78,16 +81,16 @@ Natural language is the interface. No ETL frameworks, no deployment pipelines --
 ## Architecture Decision: SoAL vs. EMR Serverless
 
 **Use SoAL when:**
-- Dataset size < 500 MB
-- Need < 1 second latency (iterative code validation)
+- Dataset size ≤ 100 MB (validation sample) or small end-to-end datasets
+- Need low-latency iterative code validation
 - Ad-hoc or development queries
 
 **Use EMR Serverless when:**
-- Dataset size > 500 MB up to PBs
+- Dataset size > 100 MB up to PBs
 - Complex multi-step Spark jobs (joins, aggregations)
 - Production analytics with SLA requirements
 
-This solution uses SoAL for **validation** and EMR Serverless for **production execution**, so code never needs to be rewritten for scale.
+This solution always uses SoAL for **validation** on a 100 MB sample, then uses EMR Serverless for **production execution** on the full dataset if the file exceeds 100 MB. Small datasets skip the EMR step entirely, so code never needs to be rewritten for scale.
 
 ---
 
@@ -117,16 +120,33 @@ The Spark Supervisor Agent follows a modular architecture where external operati
 
 ### Call Flow
 
+The supervisor agent follows a graph-based multi-agent architecture with two phases:
+
 ```
-Wrapper Lambda
+Wrapper Lambda (100 MB byte-range sample extraction)
   └── AgentCore Supervisor Agent (orchestrator)
-        ├── [local] select_execution_platform
-        ├── [local] validate_spark_code
-        ├── [MCP Lambda] generate_spark_code → Code Gen Agent
-        ├── [MCP Lambda] execute_spark_on_lambda → Spark Lambda
-        ├── [local] extract_execution_logs
-        └── [MCP Lambda] fetch_spark_results → S3
+        │
+        ├── [local] prepare_csv_sample / prepare_glue_sample
+        │     └── extract CSV header → schema_context (column names)
+        │
+        ├── Validation Agent (Agent 1 — always runs)
+        │     ├── [MCP Lambda] generate_spark_code → Code Gen Agent
+        │     │     └── prompt includes exact column names from schema_context
+        │     ├── [MCP Lambda] execute_spark_on_lambda → Spark Lambda (sample)
+        │     ├── SUCCESS: skip extract_execution_logs → fetch results directly
+        │     │   FAILURE: [local] extract_execution_logs → retry code gen
+        │     └── [MCP Lambda] fetch_spark_results → S3
+        │
+        └── Execution Agent (Agent 2 — large datasets only, > 100 MB)
+              ├── [MCP Lambda] execute_spark_on_emr → EMR Serverless (full data)
+              │   or execute_spark_on_lambda for medium datasets
+              ├── SUCCESS: fetch results directly (no extract_execution_logs)
+              └── [MCP Lambda] fetch_spark_results → S3
 ```
+
+**2-phase vs 1-phase execution:**
+- **Small datasets (≤ 100 MB)**: Validation Agent result is final — no Execution Agent invoked.
+- **Large datasets (> 100 MB)**: After validation on the 100 MB sample, the Execution Agent runs the same code on the full dataset via EMR Serverless.
 
 Config is passed as parameters in each MCP tool call (not environment variables), making the tools stateless and reusable.
 
@@ -190,6 +210,7 @@ This deploys everything: Bedrock agents, Spark Lambda Docker image, and the Clou
 ### 3. Start the UI
 
 ```bash
+export AWS_PROFILE=your-profile-name   # required — same profile used for deploy
 ./start-ui.sh
 ```
 
@@ -233,10 +254,12 @@ aws s3 cp test-data/employee_performance.csv s3://spark-data-${ACCOUNT_ID}-${REG
 
 #### Test data files
 
-| File | Rows | Scenario | Good queries |
+| File | Size | Scenario | Good queries |
 |------|------|----------|-------------|
-| `test-data/sample_sales.csv` | 30 | Sales orders across regions and categories | "Total sales by region", "Top 5 products by revenue" |
-| `test-data/employee_performance.csv` | 500 | Employee performance across departments | "Average salary by department", "Count by performance rating", "Top 10 by bonus" |
+| `test-data/sample_sales.csv` | ~1.7 KB | Sales orders across regions and categories | "Total sales by region", "Top 5 products by revenue" |
+| `test-data/employee_performance.csv` | ~500 rows | Employee performance across departments | "Average salary by department", "Count by performance rating", "Top 10 by bonus" |
+| `test-data/employee_performance_large.csv` | ~23 MB | Scaled employee dataset (1-phase, ≤ 100 MB) | "Average salary by department", "Top performers by bonus" |
+| `test-data/large_sales.csv` | ~150 MB | Large sales dataset (2-phase, triggers EMR) | "Total revenue by region", "Monthly sales trend" |
 
 ---
 
@@ -705,6 +728,47 @@ Check Lambda logs for JAR classpath errors. The Docker image includes Hadoop-AWS
 ### Gateway Timeout
 The MCP gateway may time out at ~30s while the Lambda continues. Check S3 for results.
 
+### NoSuchBucket error on CSV upload
+The backend config has `"None"` for `s3_bucket`. This happens when the CloudFormation step of `deploy-all.sh` exits early (e.g. update fails or stack is unchanged) before writing stack outputs to `config/deployment-config.json`.
+
+Fix: re-run the full deploy to regenerate the config, or check the actual bucket name and patch it manually:
+```bash
+# Find the correct bucket name
+aws sts get-caller-identity --query Account --output text   # → ACCOUNT_ID
+# Bucket follows the pattern: spark-data-ACCOUNT_ID-REGION
+# e.g. spark-data-914787431788-us-east-1
+
+# Verify it exists
+aws s3 ls s3://spark-data-ACCOUNT_ID-REGION --region us-east-1
+```
+Then update `config/deployment-config.json`:
+```json
+{ "spark": { "s3_bucket": "spark-data-ACCOUNT_ID-REGION", ... } }
+```
+
+### Wrong region when running start-ui.sh
+The backend and all Lambda/S3 resources must be in the same region. Set `AWS_REGION` before starting:
+```bash
+export AWS_PROFILE=your-profile
+export AWS_REGION=us-east-1   # match the region used during deploy
+bash start-ui.sh
+```
+If unset, the backend defaults to `us-east-1`. Confirm your deployed region:
+```bash
+aws lambda get-function --function-name dev-spark-agent-wrapper --region us-east-1
+```
+
+### Lambda invocation fails in test scripts (AWS CLI v2)
+AWS CLI v2 requires `--cli-binary-format raw-in-base64-out` for inline JSON payloads. Without it, `aws lambda invoke` silently fails on Python 3.14+ environments.
+```bash
+aws lambda invoke \
+  --function-name dev-spark-agent-wrapper \
+  --payload '{"prompt":"what is 7*10"}' \
+  --cli-binary-format raw-in-base64-out \
+  --region us-east-1 \
+  /tmp/response.json
+```
+
 ---
 
 ## Cleanup
@@ -730,4 +794,4 @@ aws cloudformation delete-stack --stack-name dev-spark-complete-stack --region u
 
 ---
 
-**Version**: 4.0.0 | **Model**: Claude Sonnet 4.5 | **UI**: React + FastAPI + Cloudscape
+**Version**: 4.1.0 | **Model**: Claude Sonnet 4.6 | **UI**: React + FastAPI + Cloudscape

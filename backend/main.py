@@ -46,8 +46,8 @@ class GenerateRequest(BaseModel):
     session_id: Optional[str] = None
     s3_input_path: Optional[str] = None
     s3_sample_path: Optional[str] = None
+    file_size_bytes: Optional[int] = None
     selected_tables: Optional[List[dict]] = None
-    selected_postgres_tables: Optional[List[dict]] = None
     execution_engine: Optional[str] = "auto"
 
 
@@ -139,9 +139,9 @@ async def generate_code(request: GenerateRequest):
         "session_id": session_id,
         "s3_input_path": request.s3_input_path,
         "s3_sample_path": request.s3_sample_path,
+        "file_size_bytes": request.file_size_bytes,
         "s3_output_path": s3_output_path,
         "selected_tables": request.selected_tables,
-        "selected_postgres_tables": request.selected_postgres_tables,
         "execution_platform": request.execution_engine or "auto",
         "config": {
             "model_id": config.get("global", {}).get("bedrock_model"),
@@ -167,11 +167,6 @@ async def generate_code(request: GenerateRequest):
         },
     }
 
-    # Add PostgreSQL config if tables selected
-    postgres_config = config.get("postgres", {})
-    if request.selected_postgres_tables and postgres_config.get("jdbc_driver_path"):
-        payload["config"]["jdbc_driver_path"] = postgres_config["jdbc_driver_path"]
-
     loop = asyncio.get_event_loop()
     try:
         result = await loop.run_in_executor(executor, _invoke_spark_agent, payload, session_id)
@@ -180,8 +175,8 @@ async def generate_code(request: GenerateRequest):
         # Save to session history
         if result.get("success") and result.get("result"):
             agent_result = result["result"]
-            sess = sessions.setdefault(session_id, {"conversation_history": [], "execution_results": []})
-            sess["conversation_history"].append({
+            sess = sessions.setdefault(session_id, {})
+            sess.setdefault("conversation_history", []).append({
                 "type": "generation",
                 "prompt": request.prompt,
                 "generated_code": agent_result.get("spark_code", ""),
@@ -192,7 +187,7 @@ async def generate_code(request: GenerateRequest):
                 "timestamp": time.time(),
             })
             if agent_result.get("execution_result") == "success":
-                sess["execution_results"].append({
+                sess.setdefault("execution_results", []).append({
                     "code": agent_result.get("spark_code", ""),
                     "result": agent_result.get("execution_message", ""),
                     "data": agent_result.get("actual_results", []),
@@ -220,7 +215,7 @@ async def execute_code(request: ExecuteRequest):
     payload = {
         "prompt": "",
         "spark_code": request.spark_code,
-        "skip_generation": True,
+        "mode": "execute",
         "session_id": session_id,
         "s3_output_path": s3_output_path,
         "execution_platform": request.execution_platform or "lambda",
@@ -255,8 +250,8 @@ async def execute_code(request: ExecuteRequest):
         # Save to session history
         if result.get("success") and result.get("result"):
             agent_result = result["result"]
-            sess = sessions.setdefault(session_id, {"conversation_history": [], "execution_results": []})
-            sess["conversation_history"].append({
+            sess = sessions.setdefault(session_id, {})
+            sess.setdefault("conversation_history", []).append({
                 "type": "execution",
                 "code": request.spark_code,
                 "execution_result": agent_result.get("execution_result", ""),
@@ -266,7 +261,7 @@ async def execute_code(request: ExecuteRequest):
                 "timestamp": time.time(),
             })
             if agent_result.get("execution_result") == "success":
-                sess["execution_results"].append({
+                sess.setdefault("execution_results", []).append({
                     "code": request.spark_code,
                     "result": agent_result.get("execution_message", ""),
                     "data": agent_result.get("actual_results", []),
@@ -281,9 +276,11 @@ async def execute_code(request: ExecuteRequest):
 
 @app.post("/upload-csv")
 async def upload_csv(request: CsvUploadRequest):
-    """Upload a CSV file to S3 and extract a 200-row sample for fast validation."""
+    """Upload a CSV file to S3 and extract a size-based sample for fast validation."""
     config = load_config()
     s3_bucket = config.get("spark", {}).get("s3_bucket", "")
+    sample_size_mb = config.get("spark", {}).get("sample_size_mb", 100)
+    sample_size_bytes = sample_size_mb * 1024 * 1024
     session_id = request.session_id or str(uuid.uuid4())
 
     s3_key = f"{session_id}/{request.filename}"
@@ -291,19 +288,27 @@ async def upload_csv(request: CsvUploadRequest):
 
     s3 = boto3.client("s3", region_name=config.get("global", {}).get("bedrock_region", "us-east-1"))
 
-    # Save full file
-    s3.put_object(Bucket=s3_bucket, Key=s3_key, Body=request.content.encode("utf-8"))
+    file_bytes = request.content.encode("utf-8")
+    file_size_bytes = len(file_bytes)
 
-    # Extract sample (header + 200 rows)
-    lines = request.content.strip().split("\n")
-    sample_lines = lines[:201]  # header + 200 data rows
-    sample_content = "\n".join(sample_lines)
+    # Save full file
+    s3.put_object(Bucket=s3_bucket, Key=s3_key, Body=file_bytes)
+
+    # Extract sample up to sample_size_mb
+    sample_bytes = file_bytes[:sample_size_bytes]
+    # Trim to last complete line to avoid a truncated row
+    last_newline = sample_bytes.rfind(b"\n")
+    if last_newline > 0 and len(sample_bytes) == sample_size_bytes:
+        sample_bytes = sample_bytes[: last_newline + 1]
     sample_key = f"{session_id}/samples/{request.filename}"
-    s3.put_object(Bucket=s3_bucket, Key=sample_key, Body=sample_content.encode("utf-8"))
+    s3.put_object(Bucket=s3_bucket, Key=sample_key, Body=sample_bytes)
     s3_sample_path = f"s3://{s3_bucket}/{sample_key}"
 
-    # Preview (first 5 lines)
-    preview = "\n".join(lines[:6])
+    # Preview (first 5 data lines)
+    preview_lines = request.content.split("\n")[:6]
+    preview = "\n".join(preview_lines)
+
+    is_small = file_size_bytes <= sample_size_bytes
 
     return {
         "success": True,
@@ -311,8 +316,9 @@ async def upload_csv(request: CsvUploadRequest):
         "s3_sample_path": s3_sample_path,
         "preview": preview,
         "filename": request.filename,
-        "total_rows": len(lines) - 1,
-        "sample_rows": min(200, len(lines) - 1),
+        "file_size_bytes": file_size_bytes,
+        "is_small": is_small,
+        "total_rows": len(request.content.split("\n")) - 1,
     }
 
 
@@ -348,6 +354,41 @@ async def list_tables(database: str):
         return {"tables": tables}
     except Exception as e:
         return {"tables": [], "error": str(e)}
+
+
+@app.get("/glue/tables/{database}/{table}/sample")
+async def glue_table_sample(database: str, table: str, rows: int = 5):
+    """Return schema + sample rows for a Glue table by reading directly from S3."""
+    config = load_config()
+    region = config.get("global", {}).get("bedrock_region", "us-east-1")
+    try:
+        glue = boto3.client("glue", region_name=region)
+        t = glue.get_table(DatabaseName=database, Name=table)["Table"]
+        columns = [{"name": c["Name"], "type": c["Type"]} for c in t.get("StorageDescriptor", {}).get("Columns", [])]
+        location = t.get("StorageDescriptor", {}).get("Location", "")
+
+        sample_rows = []
+        if location.startswith("s3://"):
+            try:
+                parts = location.replace("s3://", "").split("/", 1)
+                bucket, prefix = parts[0], parts[1].rstrip("/") + "/" if len(parts) > 1 else ""
+                s3 = boto3.client("s3", region_name=region)
+                resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=1)
+                for obj in resp.get("Contents", []):
+                    if obj["Key"].endswith(".csv") or obj["Key"].endswith(".parquet") or not obj["Key"].endswith("/"):
+                        body = s3.get_object(Bucket=bucket, Key=obj["Key"], Range="bytes=0-8191")["Body"].read()
+                        lines = body.decode("utf-8", errors="replace").splitlines()
+                        # Parse as CSV: first line = header, next rows = data
+                        import csv, io
+                        reader = list(csv.DictReader(io.StringIO("\n".join(lines))))
+                        sample_rows = [dict(r) for r in reader[:rows]]
+                        break
+            except Exception:
+                pass  # Sample unavailable, return schema only
+
+        return {"database": database, "table": table, "columns": columns, "sample_rows": sample_rows, "location": location}
+    except Exception as e:
+        return {"database": database, "table": table, "columns": [], "sample_rows": [], "error": str(e)}
 
 
 @app.post("/sessions/{session_id}/select-tables")
@@ -536,7 +577,11 @@ async def get_progress(session_id: str):
 
 @app.get("/history/{session_id}")
 async def get_history(session_id: str):
-    return sessions.get(session_id, {"conversation_history": [], "execution_results": []})
+    sess = sessions.get(session_id, {})
+    return {
+        "conversation_history": sess.get("conversation_history", []),
+        "execution_results": sess.get("execution_results", []),
+    }
 
 
 @app.get("/claude-models")

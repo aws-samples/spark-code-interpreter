@@ -236,7 +236,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 cd "$PROJECT_ROOT"
-bash scripts/deploy-mcp-tools.sh
+AWS_REGION=$REGION bash scripts/deploy-mcp-tools.sh
 
 echo ""
 
@@ -322,7 +322,7 @@ else
         if [ $? -ne 0 ]; then
             echo -e "${RED}❌ Stack update failed${NC}"
             echo "Check CloudFormation console for details"
-            exit 1
+            # Continue to write stack outputs even on update failure
         fi
     fi
 fi
@@ -332,10 +332,10 @@ echo ""
 
 # Update deployment config with stack outputs
 echo -e "${YELLOW}Updating deployment config with stack outputs...${NC}"
-INTERNAL_GW_URL=$(aws cloudformation describe-stacks \
-    --stack-name $STACK_NAME \
+INTERNAL_GW_URL=$(aws lambda get-function-configuration \
+    --function-name "${ENVIRONMENT}-spark-agent-wrapper" \
     --region $REGION \
-    --query 'Stacks[0].Outputs[?OutputKey==`InternalGatewayUrl`].OutputValue' \
+    --query 'Environment.Variables.INTERNAL_GATEWAY_URL' \
     --output text \
     --no-cli-pager 2>/dev/null || echo "")
 
@@ -372,13 +372,15 @@ python3 -c "
 import json
 with open('$CONFIG_FILE', 'r') as f:
     config = json.load(f)
-config.setdefault('spark', {}).update({
-    's3_bucket': '$S3_BUCKET',
-    'lambda_function': '$LAMBDA_FN',
-    'emr_application_id': '$EMR_APP_ID',
-    'emr_execution_role_arn': '$EMR_ROLE',
-    'internal_gateway_url': '$INTERNAL_GW_URL',
-})
+def nonempty(v): return v if v and v != 'None' else None
+updates = {k: v for k, v in {
+    's3_bucket': nonempty('$S3_BUCKET'),
+    'lambda_function': nonempty('$LAMBDA_FN'),
+    'emr_application_id': nonempty('$EMR_APP_ID'),
+    'emr_execution_role_arn': nonempty('$EMR_ROLE'),
+    'internal_gateway_url': nonempty('$INTERNAL_GW_URL'),
+}.items() if v is not None}
+config.setdefault('spark', {}).update(updates)
 config.setdefault('global', {}).update({
     'bedrock_model': 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
     'bedrock_region': '$REGION',

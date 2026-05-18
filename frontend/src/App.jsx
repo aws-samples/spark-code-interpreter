@@ -23,6 +23,7 @@ function App() {
   const [executionResult, setExecutionResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedTables, setSelectedTables] = useState([]);
+  const [gluePreviews, setGluePreviews] = useState([]);
   const [selectedPostgresTables, setSelectedPostgresTables] = useState([]);
   const [postgresConnection, setPostgresConnection] = useState(null);
   const [resetKey, setResetKey] = useState(0);
@@ -85,12 +86,14 @@ function App() {
     try {
       const s3InputPath = uploadedCsv ? uploadedCsv.s3_path : null;
       const s3SamplePath = uploadedCsv ? uploadedCsv.s3_sample_path : null;
+      const fileSizeBytes = uploadedCsv ? uploadedCsv.file_size_bytes : null;
 
       const response = await generateCode(
         prompt, sessionId, s3InputPath, s3SamplePath,
         selectedTables.length > 0 ? selectedTables : null,
-        selectedPostgresTables.length > 0 ? selectedPostgresTables : null,
-        executionEngine
+        null,
+        executionEngine,
+        fileSizeBytes
       );
 
       if (!response.success) throw new Error(response.error || 'Code generation failed');
@@ -162,7 +165,7 @@ function App() {
     setError(null);
     try {
       const response = await uploadCsvFile(file.name, file.content, sessionId);
-      setUploadedCsv({ filename: file.name, preview: response.preview, s3_path: response.s3_path, s3_sample_path: response.s3_sample_path });
+      setUploadedCsv({ filename: file.name, preview: response.preview, s3_path: response.s3_path, s3_sample_path: response.s3_sample_path, file_size_bytes: response.file_size_bytes });
       setSuccessMessage(`CSV "${file.name}" uploaded successfully!`);
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err) {
@@ -203,6 +206,23 @@ function App() {
             {uploadedCsv && (
               <Alert type="info" dismissible onDismiss={() => setUploadedCsv(null)} header={`Using CSV: ${uploadedCsv.filename}`}>
                 <Box variant="small"><pre style={{ fontSize: '11px', maxHeight: '100px', overflow: 'auto' }}>{uploadedCsv.preview}</pre></Box>
+              </Alert>
+            )}
+            {gluePreviews.length > 0 && (
+              <Alert type="info" dismissible onDismiss={() => { setGluePreviews([]); setSelectedTables([]); }}
+                header={`Using Glue table${gluePreviews.length > 1 ? 's' : ''}: ${gluePreviews.map(p => p.table).join(', ')}`}>
+                {gluePreviews.map(p => (
+                  <Box key={p.table} padding={{ bottom: 'xs' }}>
+                    <Box variant="small"><strong>{p.table}</strong> — {p.columns.length} columns: {p.columns.map(c => `${c.name} (${c.type})`).join(', ')}</Box>
+                    {p.sample_rows.length > 0 && (
+                      <Box variant="small" padding={{ top: 'xxs' }}>
+                        <pre style={{ fontSize: '11px', maxHeight: '80px', overflow: 'auto' }}>
+                          {[Object.keys(p.sample_rows[0]).join('\t'), ...p.sample_rows.map(r => Object.values(r).join('\t'))].join('\n')}
+                        </pre>
+                      </Box>
+                    )}
+                  </Box>
+                ))}
               </Alert>
             )}
             <FormField label="Describe your data processing task">
@@ -298,7 +318,7 @@ function App() {
         navigation={
           <SpaceBetween size="l">
             <GlueTableSelector key={resetKey} sessionId={sessionId}
-              onTablesSelected={(tables) => { setSelectedTables(tables); setSuccessMessage(`Selected ${tables.length} Glue table(s)`); setTimeout(() => setSuccessMessage(null), 3000); }} />
+              onTablesSelected={(tables, previews) => { setSelectedTables(tables); setGluePreviews(previews || []); setSuccessMessage(`Selected ${tables.length} Glue table(s)`); setTimeout(() => setSuccessMessage(null), 3000); }} />
 
             {postgresConnection && (
               <PostgresTableSelector key={resetKey} sessionId={sessionId} connection={postgresConnection}

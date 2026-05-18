@@ -16,8 +16,11 @@ echo "Starting Spark Code Interpreter UI..."
 echo ""
 
 # Ensure AWS profile is set
-export AWS_PROFILE=${AWS_PROFILE:-vivekml+development-east}
-echo "AWS Profile: $AWS_PROFILE"
+if [ -z "$AWS_PROFILE" ]; then
+    echo "Warning: AWS_PROFILE not set. Backend will use the default AWS credential chain."
+    echo "Set AWS_PROFILE before running this script if you need a specific profile."
+fi
+echo "AWS Profile: ${AWS_PROFILE:-default}"
 
 # Start backend
 echo "Starting backend (port 8000)..."

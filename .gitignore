@@ -55,3 +55,7 @@ Thumbs.db
 *.tmp
 *.bak
 *.backup
+
+# Scratch / experimental files (never commit)
+scratch/
+.kiro/scratch/
