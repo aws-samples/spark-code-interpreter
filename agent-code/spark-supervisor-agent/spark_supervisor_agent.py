@@ -613,6 +613,7 @@ def prepare_glue_sample(selected_tables: list, session_id: str) -> dict:
     sample_path = None
     data_file_size_bytes = None
     table_refs = []
+    sample_errors = []
 
     for table in selected_tables:
         if isinstance(table, dict):
@@ -639,11 +640,15 @@ def prepare_glue_sample(selected_tables: list, session_id: str) -> dict:
         if not sample_path and result.get('sample_s3_path'):
             sample_path = result['sample_s3_path']
 
+        if result.get('sample_error'):
+            sample_errors.append(result['sample_error'])
+
         if data_file_size_bytes is None and result.get('data_file_size_bytes') is not None:
             data_file_size_bytes = result['data_file_size_bytes']
 
     if not sample_path:
-        return {'error': 'No sample data available from Glue tables'}
+        error_detail = '; '.join(sample_errors) if sample_errors else 'No sample data available'
+        return {'error': error_detail}
 
     is_small = (data_file_size_bytes is not None and data_file_size_bytes <= sample_size_bytes)
     schema_context = '\n'.join(schemas)

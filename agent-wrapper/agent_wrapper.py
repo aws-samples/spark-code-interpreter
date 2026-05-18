@@ -65,9 +65,11 @@ def lambda_handler(event, context):
         s3_session_path = f"{session_id}"
         s3_output_path = f"s3://{s3_bucket}/{session_id}/output/"
         
-        # Extract s3_input_path and s3_sample_path from event
-        s3_input_path = event.get('s3_input_path') or (body.get('s3_input_path') if 'body' in event else None)
-        s3_sample_path = event.get('s3_sample_path') or (body.get('s3_sample_path') if 'body' in event else None)
+        # Extract s3_input_path, s3_sample_path, and selected_tables from event
+        body = json.loads(event['body']) if 'body' in event and isinstance(event['body'], str) else event.get('body', event)
+        s3_input_path = event.get('s3_input_path') or body.get('s3_input_path')
+        s3_sample_path = event.get('s3_sample_path') or body.get('s3_sample_path')
+        selected_tables = event.get('selected_tables') or body.get('selected_tables') or []
         
         # If s3_input_path provided without sample, extract up to sample_size_mb bytes
         if s3_input_path and not s3_sample_path:
@@ -101,7 +103,8 @@ def lambda_handler(event, context):
             'session_id': session_id,
             's3_input_path': s3_input_path,
             's3_sample_path': s3_sample_path,
-            's3_output_path': s3_output_path,  # Tell agent where to write results
+            's3_output_path': s3_output_path,
+            'selected_tables': selected_tables if selected_tables else None,
             'config': {
                 'environment': os.environ.get('ENVIRONMENT', 'dev'),
                 'model_id': 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
@@ -177,7 +180,9 @@ def lambda_handler(event, context):
                     's3_path': agent_response.get('s3_output_path', ''),
                     'execution_status': agent_response.get('execution_result', 'unknown'),
                     'message': agent_response.get('execution_message', ''),
-                    'session_id': session_id
+                    'session_id': session_id,
+                    'file_size_bytes': agent_response.get('file_size_bytes'),
+                    'total_rows': agent_response.get('total_rows'),
                 }
                 
                 data_count = len(clean_response['data']) if isinstance(clean_response['data'], list) else 0

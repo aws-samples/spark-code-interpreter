@@ -368,25 +368,39 @@ async def glue_table_sample(database: str, table: str, rows: int = 5):
         location = t.get("StorageDescriptor", {}).get("Location", "")
 
         sample_rows = []
+        file_size_bytes = None
+        total_rows = None
         if location.startswith("s3://"):
             try:
                 parts = location.replace("s3://", "").split("/", 1)
                 bucket, prefix = parts[0], parts[1].rstrip("/") + "/" if len(parts) > 1 else ""
                 s3 = boto3.client("s3", region_name=region)
-                resp = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=1)
-                for obj in resp.get("Contents", []):
-                    if obj["Key"].endswith(".csv") or obj["Key"].endswith(".parquet") or not obj["Key"].endswith("/"):
-                        body = s3.get_object(Bucket=bucket, Key=obj["Key"], Range="bytes=0-8191")["Body"].read()
-                        lines = body.decode("utf-8", errors="replace").splitlines()
-                        # Parse as CSV: first line = header, next rows = data
-                        import csv, io
-                        reader = list(csv.DictReader(io.StringIO("\n".join(lines))))
-                        sample_rows = [dict(r) for r in reader[:rows]]
-                        break
+                # Sum all data file sizes for the table
+                paginator = s3.get_paginator("list_objects_v2")
+                file_size_bytes = 0
+                first_file_key = None
+                for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+                    for obj in page.get("Contents", []):
+                        if not obj["Key"].endswith("/") and not obj["Key"].endswith("_SUCCESS"):
+                            file_size_bytes += obj["Size"]
+                            if first_file_key is None:
+                                first_file_key = obj["Key"]
+                if file_size_bytes == 0:
+                    file_size_bytes = None
+                if first_file_key:
+                    body = s3.get_object(Bucket=bucket, Key=first_file_key, Range="bytes=0-8191")["Body"].read()
+                    lines = body.decode("utf-8", errors="replace").splitlines()
+                    import csv, io
+                    reader = list(csv.DictReader(io.StringIO("\n".join(lines))))
+                    sample_rows = [dict(r) for r in reader[:rows]]
             except Exception:
                 pass  # Sample unavailable, return schema only
 
-        return {"database": database, "table": table, "columns": columns, "sample_rows": sample_rows, "location": location}
+        return {
+            "database": database, "table": table, "columns": columns,
+            "sample_rows": sample_rows, "location": location,
+            "file_size_bytes": file_size_bytes, "total_rows": total_rows,
+        }
     except Exception as e:
         return {"database": database, "table": table, "columns": [], "sample_rows": [], "error": str(e)}
 

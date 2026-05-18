@@ -758,6 +758,29 @@ If unset, the backend defaults to `us-east-1`. Confirm your deployed region:
 aws lambda get-function --function-name dev-spark-agent-wrapper --region us-east-1
 ```
 
+### Glue query fails with "No sample data available" or "No module named 'progress'"
+The `get-glue-table-schema` Lambda is missing its dependencies. Re-run `deploy-mcp-tools.sh` with the correct region:
+```bash
+AWS_REGION=us-east-1 bash scripts/deploy-mcp-tools.sh
+```
+Key requirements for the Glue schema Lambda:
+- `progress.py` must be co-deployed (the script copies it automatically from `mcp-tools/`)
+- `pandas` and `pyarrow` must be installed for Linux/x86_64 (the script uses `--platform manylinux2014_x86_64`)
+- The resulting zip is ~80MB and is automatically staged via S3
+
+### Glue query fails with "AccessDenied" on ListObjectsV2
+The MCP tool Lambda role only has S3 access to the `spark-data-ACCOUNT_ID-REGION` bucket by default. If your Glue tables live in a different S3 bucket (e.g. `sl-data-store-*`), add read permissions manually:
+```bash
+# Find the current inline policy
+aws iam get-role-policy --role-name dev-spark-mcp-tools-role --policy-name dev-spark-mcp-tools-policy
+
+# Add the Glue data bucket to the S3 statement Resource list, then update:
+aws iam put-role-policy --role-name dev-spark-mcp-tools-role \
+  --policy-name dev-spark-mcp-tools-policy \
+  --policy-document file://updated-policy.json
+```
+The `deploy-mcp-tools.sh` script only grants S3 access to the CloudFormation-managed `spark-data-ACCOUNT_ID-REGION` bucket. To allow access to additional Glue data buckets, add them explicitly to the S3 statement in the script and redeploy.
+
 ### Lambda invocation fails in test scripts (AWS CLI v2)
 AWS CLI v2 requires `--cli-binary-format raw-in-base64-out` for inline JSON payloads. Without it, `aws lambda invoke` silently fails on Python 3.14+ environments.
 ```bash

@@ -116,7 +116,15 @@ if [ -z "$ROLE_ARN" ] || [ "$ROLE_ARN" == "None" ]; then
             {
                 "Effect": "Allow",
                 "Action": ["iam:PassRole"],
-                "Resource": "arn:aws:iam::'$ACCOUNT_ID':role/*EMR*"
+                "Resource": [
+                    "arn:aws:iam::'$ACCOUNT_ID':role/'$ENVIRONMENT'-spark-emr-execution-role",
+                    "arn:aws:iam::'$ACCOUNT_ID':role/prod-spark-emr-execution-role"
+                ],
+                "Condition": {
+                    "StringEquals": {
+                        "iam:PassedToService": "emr-serverless.amazonaws.com"
+                    }
+                }
             }
         ]
     }'
@@ -155,16 +163,28 @@ for TOOL_DEF in "${TOOLS[@]}"; do
     # Install dependencies if requirements.txt has non-boto3 packages
     if grep -qvE "^boto3$|^$" "${TOOL_PATH}/requirements.txt" 2>/dev/null; then
         echo "  Installing dependencies..."
-        pip install -r "${TOOL_PATH}/requirements.txt" -t "${PACKAGE_DIR}" --quiet --platform manylinux2014_x86_64 --only-binary=:all: 2>/dev/null || \
-        pip install -r "${TOOL_PATH}/requirements.txt" -t "${PACKAGE_DIR}" --quiet 2>/dev/null || true
+        pip3 install -r "${TOOL_PATH}/requirements.txt" -t "${PACKAGE_DIR}" --quiet \
+            --platform manylinux2014_x86_64 --python-version 3.11 --only-binary=:all: 2>/dev/null || \
+        pip3 install -r "${TOOL_PATH}/requirements.txt" -t "${PACKAGE_DIR}" --quiet 2>/dev/null || true
     fi
 
     # Create zip
     ZIP_FILE="/tmp/${FUNCTION_NAME}.zip"
     rm -f "$ZIP_FILE"
-    (cd "$PACKAGE_DIR" && zip -r "$ZIP_FILE" . -x "*.pyc" "__pycache__/*" "boto3/*" "botocore/*" "s3transfer/*" "urllib3/*" > /dev/null 2>&1)
+    (cd "$PACKAGE_DIR" && zip -r "$ZIP_FILE" . -x "*.pyc" -x "__pycache__/*" -x "boto3/*" -x "botocore/*" -x "s3transfer/*" -x "urllib3/*" > /dev/null 2>&1)
+    ZIP_SIZE=$(stat -f%z "$ZIP_FILE" 2>/dev/null || stat -c%s "$ZIP_FILE" 2>/dev/null || echo 0)
 
-    # Create or update Lambda function
+    # Create or update Lambda function — use S3 staging for large zips (>69MB)
+    S3_STAGING_BUCKET="spark-data-${ACCOUNT_ID}-${REGION}"
+    if [ "$ZIP_SIZE" -gt 69000000 ]; then
+        echo "  Zip is $(( ZIP_SIZE / 1024 / 1024 ))MB — uploading via S3..."
+        S3_KEY="lambda-packages/${FUNCTION_NAME}.zip"
+        aws s3 cp "$ZIP_FILE" "s3://${S3_STAGING_BUCKET}/${S3_KEY}" --region "$REGION" --no-cli-pager --quiet
+        CODE_ARGS="--s3-bucket ${S3_STAGING_BUCKET} --s3-key ${S3_KEY}"
+    else
+        CODE_ARGS="--zip-file fileb://${ZIP_FILE}"
+    fi
+
     EXISTING=$(aws lambda get-function --function-name "$FUNCTION_NAME" --region "$REGION" --no-cli-pager 2>/dev/null || true)
 
     if [ -z "$EXISTING" ]; then
@@ -174,7 +194,7 @@ for TOOL_DEF in "${TOOLS[@]}"; do
             --runtime python3.11 \
             --handler handler.lambda_handler \
             --role "$ROLE_ARN" \
-            --zip-file "fileb://${ZIP_FILE}" \
+            $CODE_ARGS \
             --timeout "$TIMEOUT" \
             --memory-size "$MEMORY" \
             --region "$REGION" \
@@ -183,7 +203,7 @@ for TOOL_DEF in "${TOOLS[@]}"; do
         echo "  Updating Lambda function..."
         aws lambda update-function-code \
             --function-name "$FUNCTION_NAME" \
-            --zip-file "fileb://${ZIP_FILE}" \
+            $CODE_ARGS \
             --region "$REGION" \
             --no-cli-pager > /dev/null 2>&1
 

@@ -30,7 +30,13 @@ def _extract_sample(s3_client, location, s3_bucket, session_id, table_name, samp
         prefix += "/"
 
     # List files at the location
-    response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=10)
+    try:
+        response = s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=10)
+    except Exception as e:
+        return None, None, (
+            f"AccessDenied: s3://{bucket} is not accessible to the MCP Lambda role. "
+            f"Add arn:aws:s3:::{bucket} and arn:aws:s3:::{bucket}/* to the S3 policy in deploy-mcp-tools.sh"
+        )
     contents = response.get("Contents", [])
 
     # Find first data file (CSV or Parquet)
@@ -81,7 +87,8 @@ def _extract_sample(s3_client, location, s3_bucket, session_id, table_name, samp
             )
         else:
             has_header = False
-        df = pd.read_csv(StringIO(content), header=0 if has_header else None)
+        df = pd.read_csv(StringIO(content), header=0 if has_header else None,
+                         quotechar='"', on_bad_lines='skip')
 
     # Save as CSV to session-specific path
     sample_key = f"{session_id}/samples/{table_name}_sample.csv"

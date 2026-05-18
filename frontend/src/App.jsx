@@ -38,7 +38,6 @@ function App() {
   const [editingConnection, setEditingConnection] = useState(null);
   const [csvUploadLoading, setCsvUploadLoading] = useState(false);
   const [sessionHistory, setSessionHistory] = useState(null);
-  const [showAdditionalConnections, setShowAdditionalConnections] = useState(false);
   const [progressStages, setProgressStages] = useState([]);
   const [currentStage, setCurrentStage] = useState(null);
   const [progressSessionId, setProgressSessionId] = useState(null);
@@ -205,7 +204,16 @@ function App() {
           <SpaceBetween size="l">
             {uploadedCsv && (
               <Alert type="info" dismissible onDismiss={() => setUploadedCsv(null)} header={`Using CSV: ${uploadedCsv.filename}`}>
-                <Box variant="small"><pre style={{ fontSize: '11px', maxHeight: '100px', overflow: 'auto' }}>{uploadedCsv.preview}</pre></Box>
+                <SpaceBetween size="xxs">
+                  {(uploadedCsv.file_size_bytes != null || uploadedCsv.total_rows != null) && (
+                    <Box variant="small">
+                      {uploadedCsv.file_size_bytes != null && <span>{(uploadedCsv.file_size_bytes / (1024 * 1024)).toFixed(2)} MB</span>}
+                      {uploadedCsv.file_size_bytes != null && uploadedCsv.total_rows != null && <span> · </span>}
+                      {uploadedCsv.total_rows != null && <span>{uploadedCsv.total_rows.toLocaleString()} rows</span>}
+                    </Box>
+                  )}
+                  <Box variant="small"><pre style={{ fontSize: '11px', maxHeight: '100px', overflow: 'auto' }}>{uploadedCsv.preview}</pre></Box>
+                </SpaceBetween>
               </Alert>
             )}
             {gluePreviews.length > 0 && (
@@ -213,7 +221,16 @@ function App() {
                 header={`Using Glue table${gluePreviews.length > 1 ? 's' : ''}: ${gluePreviews.map(p => p.table).join(', ')}`}>
                 {gluePreviews.map(p => (
                   <Box key={p.table} padding={{ bottom: 'xs' }}>
-                    <Box variant="small"><strong>{p.table}</strong> — {p.columns.length} columns: {p.columns.map(c => `${c.name} (${c.type})`).join(', ')}</Box>
+                    <Box variant="small">
+                      <strong>{p.table}</strong> — {p.columns.length} columns: {p.columns.map(c => `${c.name} (${c.type})`).join(', ')}
+                    </Box>
+                    {(p.file_size_bytes != null || p.total_rows != null) && (
+                      <Box variant="small" color="text-body-secondary">
+                        {p.file_size_bytes != null && <span>{(p.file_size_bytes / (1024 * 1024)).toFixed(2)} MB</span>}
+                        {p.file_size_bytes != null && p.total_rows != null && <span> · </span>}
+                        {p.total_rows != null && <span>{p.total_rows.toLocaleString()} rows</span>}
+                      </Box>
+                    )}
                     {p.sample_rows.length > 0 && (
                       <Box variant="small" padding={{ top: 'xxs' }}>
                         <pre style={{ fontSize: '11px', maxHeight: '80px', overflow: 'auto' }}>
@@ -327,27 +344,6 @@ function App() {
                 onConfigure={() => { setEditingConnection(postgresConnection); setShowPostgresModal(true); }} />
             )}
 
-            <Container header={<Header variant="h3" actions={<Button iconName={showAdditionalConnections ? "angle-up" : "angle-down"} variant="icon" onClick={() => setShowAdditionalConnections(!showAdditionalConnections)} />}>Additional Connections</Header>}>
-              {showAdditionalConnections && (
-                <SpaceBetween direction="horizontal" size="m">
-                  <Button variant="normal" onClick={() => { setEditingConnection(null); setShowPostgresModal(true); }} disabled={!!postgresConnection}>
-                    <SpaceBetween direction="horizontal" size="xs" alignItems="center">
-                      <img src="/aurora.png" alt="PostgreSQL" style={{width: '24px', height: '24px'}} /><Box>PostgreSQL</Box>
-                    </SpaceBetween>
-                  </Button>
-                  <Button variant="normal" disabled>
-                    <SpaceBetween direction="horizontal" size="xs" alignItems="center">
-                      <img src="/snowflake.png" alt="Snowflake" style={{width: '24px', height: '24px'}} /><Box>Snowflake</Box>
-                    </SpaceBetween>
-                  </Button>
-                  <Button variant="normal" disabled>
-                    <SpaceBetween direction="horizontal" size="xs" alignItems="center">
-                      <img src="/databricks.png" alt="Databricks" style={{width: '24px', height: '24px'}} /><Box>Databricks</Box>
-                    </SpaceBetween>
-                  </Button>
-                </SpaceBetween>
-              )}
-            </Container>
 
             {selectedTables.length > 0 && (
               <Container>

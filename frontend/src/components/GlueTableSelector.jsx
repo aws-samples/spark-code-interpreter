@@ -88,7 +88,15 @@ const GlueTableSelector = ({ sessionId, onTablesSelected }) => {
           tableRefs.map(t =>
             fetch(`http://localhost:8000/glue/tables/${t.database}/${t.table}/sample?rows=5`)
               .then(r => r.json())
-              .catch(() => ({ table: t.table, columns: [], sample_rows: [] }))
+              .then(d => ({
+                table: d.table || t.table,
+                columns: d.columns || [],
+                sample_rows: d.sample_rows || [],
+                location: d.location,
+                file_size_bytes: d.file_size_bytes ?? null,
+                total_rows: d.total_rows ?? null,
+              }))
+              .catch(() => ({ table: t.table, columns: [], sample_rows: [], file_size_bytes: null, total_rows: null }))
           )
         );
         setTablePreviews(previews);
@@ -185,6 +193,13 @@ const GlueTableSelector = ({ sessionId, onTablesSelected }) => {
                     ) : (
                       <Box color="text-body-secondary" variant="small">
                         Sample rows unavailable — table may use a non-CSV format or S3 access is restricted.
+                      </Box>
+                    )}
+                    {(p.file_size_bytes != null || p.total_rows != null) && (
+                      <Box variant="small" color="text-body-secondary">
+                        {p.file_size_bytes != null && <span>{(p.file_size_bytes / (1024 * 1024)).toFixed(2)} MB</span>}
+                        {p.file_size_bytes != null && p.total_rows != null && <span> · </span>}
+                        {p.total_rows != null && <span>{p.total_rows.toLocaleString()} rows</span>}
                       </Box>
                     )}
                     <Box variant="small" color="text-body-secondary">
