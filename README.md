@@ -1,6 +1,6 @@
 # Project Bluebear - Spark Code Interpreter
 
-Project Bluebear is a conversational Gen AI solution that lets business users analyze datasets ranging from megabytes to petabytes using Amazon Bedrock Agents and Apache Spark. Submit natural language queries and get PySpark code that is automatically generated, validated, and executed.
+Project Bluebear is a conversational Gen AI solution that lets business users analyze datasets ranging from megabytes to petabytes using Amazon Bedrock Agents and Apache Spark. Submit natural language queries and get PySpark code that is automatically generated, validated, and executed. The goal is to leverage Generative AI to enable a business user to analyze petabyte scale data with little to no technical experience.
 
 Two execution backends work together:
 
@@ -717,4 +717,4 @@ aws cloudformation delete-stack --stack-name spark-code-interpreter --region us-
 
 ---
 
-**Version**: 3.0.0 | **Model**: Claude Sonnet 4.5 | **UI**: React + FastAPI
+**Version**: 3.0.0 | **Model**: Claude Sonnet 4.5 | **UI**: React + FastAPI (Amazon QuickSuite coming soon)

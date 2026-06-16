@@ -1,0 +1,89 @@
+Entrypoint parsed: file=/Users/nmurich/strands-agents/agent-core/data-processing-agent/backend/spark-supervisor-agent/spark_supervisor_agent.py, bedrock_agentcore_name=spark_supervisor_agent
+Memory configured with STM only
+Configuring BedrockAgentCore agent: spark_supervisor_agent
+Will create new memory with mode: STM_ONLY
+Memory configuration: Short-term memory only
+Generated Dockerfile: Dockerfile
+Generated .dockerignore: /Users/nmurich/strands-agents/agent-core/data-processing-agent/backend/spark-supervisor-agent/.dockerignore
+Keeping 'spark_supervisor_agent' as default agent
+Bedrock AgentCore configured: /Users/nmurich/strands-agents/agent-core/data-processing-agent/backend/spark-supervisor-agent/.bedrock_agentcore.yaml
+🚀 CodeBuild mode: building in cloud (RECOMMENDED - DEFAULT)
+   • Build ARM64 containers in the cloud with CodeBuild
+   • No local Docker required
+💡 Available deployment modes:
+   • runtime.launch()                           → CodeBuild (current)
+   • runtime.launch(local=True)                 → Local development
+   • runtime.launch(local_build=True)           → Local build + cloud deploy (NEW)
+Creating memory resource for agent: spark_supervisor_agent
+✅ MemoryManager initialized for region: us-east-1
+🔎 Retrieving memory resource with ID: spark_supervisor_agent_mem-B91TKC4fb6...
+  Found memory: spark_supervisor_agent_mem-B91TKC4fb6
+Found existing memory in cloud: spark_supervisor_agent_mem-B91TKC4fb6
+Existing memory has 0 strategies
+✅ Using existing STM-only memory
+Starting CodeBuild ARM64 deployment for agent 'spark_supervisor_agent' to account 260005718447 (us-east-1)
+Setting up AWS resources (ECR repository, execution roles)...
+Getting or creating ECR repository for agent: spark_supervisor_agent
+✅ ECR repository available: 260005718447.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-spark_supervisor_agent
+Getting or creating execution role for agent: spark_supervisor_agent
+Using AWS region: us-east-1, account ID: 260005718447
+Role name: AmazonBedrockAgentCoreSDKRuntime-us-east-1-976e96fdb5
+✅ Reusing existing execution role: arn:aws:iam::260005718447:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-976e96fdb5
+✅ Execution role available: arn:aws:iam::260005718447:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-976e96fdb5
+Preparing CodeBuild project and uploading source...
+Getting or creating CodeBuild execution role for agent: spark_supervisor_agent
+Role name: AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-976e96fdb5
+Reusing existing CodeBuild execution role: arn:aws:iam::260005718447:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-976e96fdb5
+Using dockerignore.template with 45 patterns for zip filtering
+Uploaded source to S3: spark_supervisor_agent/source.zip
+Updated CodeBuild project: bedrock-agentcore-spark_supervisor_agent-builder
+Starting CodeBuild build (this may take several minutes)...
+Starting CodeBuild monitoring...
+🔄 QUEUED started (total: 0s)
+✅ QUEUED completed in 1.1s
+🔄 PROVISIONING started (total: 1s)
+✅ PROVISIONING completed in 11.7s
+🔄 DOWNLOAD_SOURCE started (total: 13s)
+✅ DOWNLOAD_SOURCE completed in 1.1s
+🔄 BUILD started (total: 14s)
+✅ BUILD completed in 20.3s
+🔄 POST_BUILD started (total: 34s)
+✅ POST_BUILD completed in 16.0s
+🔄 COMPLETED started (total: 50s)
+✅ COMPLETED completed in 1.1s
+🎉 CodeBuild completed successfully in 0m 51s
+CodeBuild completed successfully
+✅ CodeBuild project configuration saved
+Deploying to Bedrock AgentCore...
+Passing memory configuration to agent: spark_supervisor_agent_mem-B91TKC4fb6
+✅ Agent created/updated: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/spark_supervisor_agent-EZPQeDGCjR
+Observability is enabled, configuring Transaction Search...
+CloudWatch Logs resource policy already configured
+X-Ray trace destination already configured
+X-Ray indexing rule already configured
+✅ Transaction Search already fully configured
+🔍 GenAI Observability Dashboard:
+   https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#gen-ai-observability/agent-core
+Polling for endpoint to be ready...
+Agent endpoint: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/spark_supervisor_agent-EZPQeDGCjR/runtime-endpoint/DEFAULT
+Deployment completed successfully - Agent: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/spark_supervisor_agent-EZPQeDGCjR
+Built with CodeBuild: bedrock-agentcore-spark_supervisor_agent-builder:85b0d1b8-e27b-4f35-b6fc-12a89524a3f9
+Deployed to cloud: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/spark_supervisor_agent-EZPQeDGCjR
+ECR image: 260005718447.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-spark_supervisor_agent
+🔍 Agent logs available at:
+   /aws/bedrock-agentcore/runtimes/spark_supervisor_agent-EZPQeDGCjR-DEFAULT --log-stream-name-prefix "2025/10/28/\[runtime-logs]"
+   /aws/bedrock-agentcore/runtimes/spark_supervisor_agent-EZPQeDGCjR-DEFAULT --log-stream-names "otel-rt-logs"
+💡 Tail logs with: aws logs tail /aws/bedrock-agentcore/runtimes/spark_supervisor_agent-EZPQeDGCjR-DEFAULT --log-stream-name-prefix "2025/10/28/\[runtime-logs]" --follow
+💡 Or view recent logs: aws logs tail /aws/bedrock-agentcore/runtimes/spark_supervisor_agent-EZPQeDGCjR-DEFAULT --log-stream-name-prefix "2025/10/28/\[runtime-logs]" --since 1h
+
+Configuration response:
+config_path=PosixPath('/Users/nmurich/strands-agents/agent-core/data-processing-agent/backend/spark-supervisor-agent/.bedrock_agentcore.yaml') dockerfile_path=PosixPath('/Users/nmurich/strands-agents/agent-core/data-processing-agent/backend/spark-supervisor-agent/Dockerfile') dockerignore_path=PosixPath('/Users/nmurich/strands-agents/agent-core/data-processing-agent/backend/spark-supervisor-agent/.dockerignore') runtime='Docker' region='us-east-1' account_id='260005718447' execution_role=None ecr_repository=None auto_create_ecr=True memory_id=None
+✅ Reusing existing ECR repository: 260005718447.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-spark_supervisor_agent
+
+Launch result:
+mode='codebuild' tag='bedrock_agentcore-spark_supervisor_agent:latest' env_vars=None port=None runtime=None ecr_uri='260005718447.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-spark_supervisor_agent' agent_id='spark_supervisor_agent-EZPQeDGCjR' agent_arn='arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/spark_supervisor_agent-EZPQeDGCjR' codebuild_id='bedrock-agentcore-spark_supervisor_agent-builder:85b0d1b8-e27b-4f35-b6fc-12a89524a3f9' build_output=None
+
+✅ Spark Supervisor Agent deployed successfully!
+ARN: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/spark_supervisor_agent-EZPQeDGCjR
+✅ Updated config with Spark supervisor ARN: arn:aws:bedrock-agentcore:us-east-1:260005718447:runtime/spark_supervisor_agent-EZPQeDGCjR
+

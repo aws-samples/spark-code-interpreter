@@ -1,0 +1,45 @@
+{
+  "tools": [
+    {
+      "name": "execute_spark",
+      "description": "Execute PySpark code on AWS Lambda for data processing, analysis, and visualization. Supports DataFrame operations, SQL queries, data transformations, and chart generation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "PySpark code to execute. The code should write results to /tmp/output.json as a JSON object. Example: spark.createDataFrame([...]).toPandas().to_json('/tmp/output.json')"
+          },
+          "dataset_name": {
+            "type": ["string", "array"],
+            "description": "Optional. Name(s) of dataset(s) used in the code. Can be a single string or array of strings.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bucket": {
+            "type": "string",
+            "description": "Optional. S3 bucket name for storing outputs and accessing datasets."
+          },
+          "file_path": {
+            "type": "string",
+            "description": "Optional. S3 key prefix (folder path) for storing outputs."
+          },
+          "iterate": {
+            "type": "integer",
+            "description": "Optional. Execution attempt counter (default: 0).",
+            "default": 0
+          },
+          "config": {
+            "type": "object",
+            "description": "Optional. Additional Spark configuration parameters as key-value pairs.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["code"]
+      }
+    }
+  ]
+}
